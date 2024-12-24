@@ -118,6 +118,7 @@ local function cleanName(name, mod)
     local modprefixes = {
         HardcoreQuesting = "hqm",
         ComputerCraft = "cc",
+        BigReactors = "br"
     }
     for _, pattern in ipairs(specialFixes.generalPat.name) do
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
@@ -130,11 +131,12 @@ local function cleanName(name, mod)
     if modprefixes[mod] then
         name = gstring.stripIgnoreCase(name, modprefixes[mod], true)
     end
-    name = name:gsub("%.", "_")
+    name = name:gsub("[%/%.]", "_")
     return name
 end
 
 local function cleanClass(class, mod)
+    class = class:gsub("%s", "")
     class = stripMod(class, mod, specialFixes.modAliases.class)
     if specialFixes.modAliases.classPassTwo[mod] then
         class = stripMod(class, specialFixes.modAliases.classPassTwo[mod])
@@ -150,27 +152,29 @@ local function fixNameFromType(oldName, item, mod)
 end
 
 local function fixNameFromClassCore(oldName, item, mod, tryPostfix)
-    local newName
+    
     local classFinal = gstring.extractLastSegDot(item.class)
+    local newName = classFinal
     local prefix, number = oldName:match("(%a+)[_%.]?(%d+)")
     oldName = prefix or oldName
     if tryPostfix then
         local classPostfix = gstring.stripIgnoreCase(classFinal, oldName, true, true)
         if classPostfix ~= classFinal then
             newName = oldName .. classPostfix
-            goto fixClassEnd
         end
     end
-    newName = gstring.stripIgnoreCase(classFinal, "[Bb]lock", true)
+    newName = gstring.stripIgnoreCase(newName, "[Bb]lock", true)
+    if newName ~= "item" and newName ~= "items" then
     newName = gstring.stripIgnoreCase(newName, "[Ii]tem", true)
-    ::fixClassEnd::
+    end
     local modprefixes = {
-        ["AppliedEnergistics"] = "AppEng",
-        ["pamharvestcraft"] = "Pam",
-        ["ExtraTrees"] = "ET"
+        AppliedEnergistics = "AppEng",
+        pamharvestcraft = "Pam",
+        ExtraTrees = "ET",
+        BigReactors = "BR"
     }
     if modprefixes[mod] then
-        newName = gstring.stripIgnoreCase(newName, modprefixes[mod], true, true)
+        newName = gstring.stripIgnoreCase(newName, modprefixes[mod], true)
     end
     if number then
         newName = newName .. "_" .. number
@@ -218,7 +222,7 @@ local function fixCollisions(iTable, field, renameFunc)
                     iTable[mod][name] = nil
                     for index, item in ipairs(items) do
                         local newName = renameFunc(name, item, mod, index)
-                        print(string.format("Renaming item with %s '%s' to '%s.%s'", field, item[field], mod, newName))
+                        print(string.format("Renaming item with %s '%s' from '%s' to '%s.%s'", field, item[field], name, mod, newName))
                         -- Ensure the new name exists under the mod
                         if not iTable[mod][newName] then
                             iTable[mod][newName] = {}
@@ -288,29 +292,29 @@ for i, entry in ipairs(parsedCSV) do
     local unlocalised = entry[4]
     local class = entry[5]
 
-    if unlocalised ~= "tile.ForgeFiller" and id ~= "ID" then
-        if mod == "crowley.skyblock" then
-            mod = "exnihilo"
-        end
-        local parsedName = cleanName(unlocalised, mod)
-        local parsedClass = cleanClass(class, mod)
-        parsedName = hardcodedRenameEarly(parsedName, parsedClass, mod, id)
+            if unlocalised ~= "tile.ForgeFiller" and id ~= "ID" then
+                if mod == "crowley.skyblock" then
+                    mod = "exnihilo"
+                end
+                local parsedName = cleanName(unlocalised, mod)
+                local parsedClass = cleanClass(class, mod)
+                parsedName = hardcodedRenameEarly(parsedName, parsedClass, mod, id)
 
-        -- Ensure the mod key exists in the nestedTable
+                -- Ensure the mod key exists in the nestedTable
         if not itemTable[mod] then
             itemTable[mod] = {}
-        end
+                end
         if not itemTable[mod][parsedName] then
             itemTable[mod][parsedName] = {}
-        end
+                end
 
-        -- Add the ID entry under the mod key
+                -- Add the ID entry under the mod key
         table.insert(itemTable[mod][parsedName], {
-            ["id"] = id,
-            ["type"] = type,
-            ["class"] = parsedClass
-        })
-    end
+                    ["id"] = id,
+                    ["type"] = type,
+                    ["class"] = parsedClass
+                })
+            end
     if i % 1024 == 0 then
         os.sleep(.001)
     end
@@ -320,6 +324,8 @@ end
 fixCollisions(itemTable, "type", fixNameFromType)
 fixCollisions(itemTable, "class", fixNameFromClass)
 fixCollisions(itemTable, "class", fixNameFromClassPassTwo)
+
+test(itemTable)
 fixCollisions(itemTable, "type", fixNameFromType)
 fixCollisions(itemTable, "id", fixNameFromIndex)
 local serfile
