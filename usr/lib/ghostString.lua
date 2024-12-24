@@ -28,7 +28,7 @@ function gstring.stripIgnoreCase(str, pattern, fromStart, stripPre)
     end
     local firstIndex, lastIndex = str.find(lowerStr, lowerPat)
 
-    return str.cutoutString(str, firstIndex, lastIndex)
+    return gstring.cutoutString(str, firstIndex, lastIndex)
 end
 
 return gstring
