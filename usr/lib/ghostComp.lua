@@ -1,7 +1,7 @@
 local comp = require("component")
 local gutil = require("ghostUtils")
 local gcomp = {}
-
+gcomp.version = 1.0
 
 function gcomp.getAll()
     local tList = {}
@@ -64,4 +64,24 @@ if comp.isAvailable("thermalexpansion_energycell_resonant_name") then
 
     gcomp.resonant=comp.thermalexpansion_energycell_resonant_name
 end
+
+if comp.isAvailable("screen") then
+    --should generalize to all resonant cells, not just the primary.
+    screenList = gcomp.getAllType("screen")
+    for i, address in ipairs(screenList) do
+        screen = comp.proxy(address)
+        function screen.getAspectRatioSmart()
+            local x,y
+            if gutil.isNative() then
+                x, y = comp.screen.getAspectRatio()
+            else
+                x, y = 16, 9
+            end
+            return x,y
+        end
+    end
+
+    gcomp.screen = comp.screen
+end
+
 return gcomp

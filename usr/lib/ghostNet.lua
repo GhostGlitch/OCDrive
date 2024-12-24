@@ -1,15 +1,20 @@
-local compress = require("compression")
 local ser = require("serialization")
 
 local gnet = {}
-function gnet.compressTable(table)
-    local serialized = ser.serialize(table)
-    return compress:Compress(serialized)
-end
+gnet.version = 0.5
 
-function gnet.decompressTable(str)
-    local decompressed = compress:Decompress(str)
-    return ser.unserialize(decompressed)
+if _VERSION == 5.2 then
+    local compress = require("compression")
+
+    function gnet.compressTable(table)
+        local serialized = ser.serialize(table)
+        return compress:Compress(serialized)
+    end
+
+    function gnet.decompressTable(str)
+        local decompressed = compress:Decompress(str)
+        return ser.unserialize(decompressed)
+    end
 end
 
 function gnet.printSerializedSize(serialized, tblName)
