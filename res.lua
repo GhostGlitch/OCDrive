@@ -4,11 +4,12 @@ local gutil = require("ghostUtils")
 local gmath = require("ghostMath")
 local serialization = require("serialization")
 
-XSCALE = 2
-YSCALE = 1
-MULTOVERSHOOT = 1.1
-RowsPerY = 16
-ScrX, ScrY = comp.screen.getAspectRatio()
+local XSCALE = 2
+local YSCALE = 1
+local MULTOVERSHOOT = 1.1
+local RowsPerY = 16
+local ScrX, ScrY = comp.screen.getAspectRatioSmart()
+
 Multiplier = 1
  NewX = 0
  NewY = 0
@@ -81,15 +82,17 @@ while true do
         comp.gpu.setResolution(roundX, roundY)
         print("Resolution set to " .. roundX .. "x" .. roundY)
 
-        config = fs.concat("/etc/screens", comp.screen.address)
-        file = io.open(config, "w")
-        file:write("-----Screen Config-----\n\n")
-        file:write("Width=" .. ScrX.. "\n")
-        file:write("Height=" .. ScrY.. "\n")
-        file:write("X=" .. roundX .. "\n")
-        file:write("Y=" .. roundY .. "\n")
-        file:close()
+        local cfgPath = fs.concat("/etc/screens", comp.screen.address)
 
+        local cfgStr = (
+            "-----Screen Config-----\n" ..
+            "\n" ..
+            "Width=" .. ScrX.. "\n" ..
+            "Height=" .. ScrY.. "\n" ..
+            "X=" .. roundX .. "\n" ..
+            "Y=" .. roundY .. "\n"
+        )
+        gutil.strToFile(cfgPath, cfgStr)
         break
     end
     --gutil.waitForAny(false)

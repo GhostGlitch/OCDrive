@@ -1,24 +1,32 @@
 ---@diagnostic disable: need-check-nil, undefined-field
-local MIN_GUTILS_VER = 1
+local MIN_GUTIL_VER = 1.3
+local MIN_GCOMP_VER = 1.0
 local ROLE = "test"
+local SELF = "autorun.lua"
 
 
-local fs = require("filesystem")
 local comp = require("component")
 local shell = require("shell")
-local term = require("term")
 
-
-local gutils = require("ghostUtils")
-if gutils.version == nil or gutils.version < MIN_GUTILS_VER then
-    comp.gpu.setForeground(0xFF0000)
-    print("Error: autorun.lua requires at least version" .. MIN_GUTILS_VER .. "of ghostUtils")
-    comp.gpu.setForeground(0xFFFFFF)
-    return
-end
 local RoleScript = shell.resolve(ROLE, "lua") or ("/" .. ROLE .. ".lua")
 if not comp.isAvailable("gpu") or not comp.isAvailable("screen") then
     os.execute(RoleScript)
+    return
+end
+
+local fs = require("filesystem")
+local term = require("term")
+local gutil = require("ghostUtils")
+local gcomp = require("ghostComp")
+
+if gutil.version == nil or gutil.version < MIN_GUTIL_VER then
+    comp.gpu.setForeground(0xFF0000)
+    print("Error: autorun.lua requires at least version " .. MIN_GUTIL_VER .. " of ghostUtils")
+    comp.gpu.setForeground(0xFFFFFF)
+    return
+end
+
+if not gutil.checkGVer(gcomp, MIN_GCOMP_VER, SELF, "ghostComp.lua") then
     return
 end
 
@@ -28,9 +36,9 @@ local scrcfgPath = fs.concat("/etc/screens", screen.address)
 local scrcfgBakPath = fs.concat("/etc/screens", screen.address .. ".bak")
 local scrcfgBadBakPath = fs.concat("/etc/screens", screen.address .. ".borked")
 local res = shell.resolve("res", "lua") or "/res.lua"
-local angryPrint = gutils.angryPrint
-local happyPrint = gutils.happyPrint
-local uneasyPrint = gutils.uneasyPrint
+local angryPrint = gutil.angryPrint
+local happyPrint = gutil.happyPrint
+local uneasyPrint = gutil.uneasyPrint
 
 local function setResFromCfg(cfgPath)
     if not fs.exists(cfgPath) then
@@ -39,11 +47,11 @@ local function setResFromCfg(cfgPath)
     end
     print("Previous config found.")
     
-    local cfg = gutils.readFile(cfgPath)
-    local x, xRaw, xLine = gutils.parseCfgVal(cfg, "X")
-    local y, yRaw, yLine = gutils.parseCfgVal(cfg, "Y")
-    local width, widthRaw, widthLine = gutils.parseCfgVal(cfg, "Width")
-    local height, heightRaw, heightLine = gutils.parseCfgVal(cfg, "Height")
+    local cfg = gutil.readFile(cfgPath)
+    local x, xRaw, xLine = gutil.parseCfgVal(cfg, "X")
+    local y, yRaw, yLine = gutil.parseCfgVal(cfg, "Y")
+    local width, widthRaw, widthLine = gutil.parseCfgVal(cfg, "Width")
+    local height, heightRaw, heightLine = gutil.parseCfgVal(cfg, "Height")
 
     if xLine == "" or yLine == "" or widthLine == "" or heightLine == "" then
         angryPrint("Some Keys not found... What did you do??")
@@ -61,7 +69,8 @@ local function setResFromCfg(cfgPath)
         angryPrint("Some values are too small or negative..")
         return false
     end
-    local ScrX, ScrY = comp.screen.getAspectRatio()
+
+    local ScrX, ScrY = comp.screen.getAspectRatioSmart()
     if width ~= ScrX or height ~= ScrY then
         angryPrint("Screen size has changed since last boot.")
         return false
