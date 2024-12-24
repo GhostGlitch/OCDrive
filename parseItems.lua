@@ -10,9 +10,18 @@ if not parsedCSV then
     gutil.angryPrint("Error parsing items.csv")
     return
 end
+local collisionFilePath = "/itemTableCollisions.txt"
 
 local specialFixes = {
-    modMappings = {
+    generalPat = {
+        name = {
+            "^tile[s]?%.",    -- Remove "tile." at the start
+            "^block[s]?%.",   -- Remove "block." at the start
+            "^item[s]?%.",      -- Remove "item." at the start
+            " %- this item is just used to mime fluids!"
+        }
+    },
+    modAliases = {
         --for mods which use a different name for their identifier, and in item names. MUST be lowercase.
         name = {
             hungeroverhaul = "pamharvestcraft",
@@ -59,6 +68,10 @@ local specialFixes = {
         byID = {        
             HungerOverhaul = { ["105"] = "melonStem" },
             Minecraft = {
+                ["8"] = "waterFlowing",
+                ["9"] = "waterStationary",
+                ["10"] = "lavaFlowing",
+                ["11"] = "lavaStationary",
                 ["39"] = "mushroomBrown",
                 ["40"] = "mushroomRed",
                 ["43"] = "stoneSlabDouble",
@@ -87,13 +100,14 @@ local specialFixes = {
     }
 }
 
-local function stripMod(str, mod, modmap)
+
+local function stripMod(str, mod, modAliases)
     local modmask
     local lowerMod = mod:lower()
-    if modmap then
-        modmask = modmap[lowerMod] or lowerMod
+    if modAliases then
+        modmask = modAliases[lowerMod] or lowerMod
     else
-        modmask = mod
+        modmask = lowerMod
     end
     local stripStr = (modmask .. "[:%.]")
     str = gstring.stripIgnoreCase(str, stripStr, true, true)
@@ -101,23 +115,16 @@ local function stripMod(str, mod, modmap)
 end
 -- Function to clean a string by removing all matching patterns
 local function cleanName(name, mod)
-
-    local namePatterns = {
-        "^tile[s]?%.",    -- Remove "tile." at the start
-        "^block[s]?%.",   -- Remove "block." at the start
-        "^item[s]?%.",      -- Remove "item." at the start
-        " %- this item is just used to mime fluids!"
-    }    
-    for _, pattern in ipairs(namePatterns) do
-        name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
-    end
-
     local modprefixes = {
         HardcoreQuesting = "hqm",
         ComputerCraft = "cc",
     }
-    name = stripMod(name, mod, specialFixes.modMappings.name)
-    for _, pattern in ipairs(namePatterns) do
+    for _, pattern in ipairs(specialFixes.generalPat.name) do
+        name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
+    end
+
+    name = stripMod(name, mod, specialFixes.modAliases.name)
+    for _, pattern in ipairs(specialFixes.generalPat.name) do
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
     end
     if modprefixes[mod] then
@@ -128,33 +135,29 @@ local function cleanName(name, mod)
 end
 
 local function cleanClass(class, mod)
-
-
-    class = stripMod(class, mod, specialFixes.modMappings.class)
-    if specialFixes.modMappings.classPassTwo[mod] then
-        class = stripMod(class, specialFixes.modMappings.classPassTwo[mod])
+    class = stripMod(class, mod, specialFixes.modAliases.class)
+    if specialFixes.modAliases.classPassTwo[mod] then
+        class = stripMod(class, specialFixes.modAliases.classPassTwo[mod])
     end
     class = class:gsub("iguanaman.", "")
     return class
 end
+
+
 
 local function fixNameFromType(oldName, item, mod)
     return oldName .. "_" .. item.type
 end
 
 local function fixNameFromClassCore(oldName, item, mod, tryPostfix)
-    local class = item.class
     local newName
-    local classFinal = gstring.extractLastSegDot(class)
+    local classFinal = gstring.extractLastSegDot(item.class)
     local prefix, number = oldName:match("(%a+)[_%.]?(%d+)")
     oldName = prefix or oldName
     if tryPostfix then
         local classPostfix = gstring.stripIgnoreCase(classFinal, oldName, true, true)
         if classPostfix ~= classFinal then
             newName = oldName .. classPostfix
-            if number then
-                newName = newName .. "_" .. number
-            end
             goto fixClassEnd
         end
     end
@@ -169,8 +172,6 @@ local function fixNameFromClassCore(oldName, item, mod, tryPostfix)
     if modprefixes[mod] then
         newName = gstring.stripIgnoreCase(newName, modprefixes[mod], true, true)
     end
-    --print(class, newName)
-    --os.sleep(.1)
     if number then
         newName = newName .. "_" .. number
     end
@@ -182,66 +183,47 @@ end
 local function fixNameFromClassPassTwo(oldName, item, mod)
     return fixNameFromClassCore(oldName, item, mod, false)
 end
-local function hardcodedRenameEarly(name, class, mod, id)
-    class = gstring.extractLastSegDot(class)
-    local hardClass = specialFixes.hardcoded.byClass[mod]
-    local hardNames = specialFixes.hardcoded.byName
-    local hardIDs = specialFixes.hardcoded.byID
-    if hardClass and hardClass[class] then
-        name = hardClass[class]
-    end
 
-    if name == "null" then
-        local item = {class = class}
-        name = fixNameFromClassCore(name, item, mod, false)
-    end
-
-    if mod == "Minecraft" and (name == "water" or name == "lava") then
-        if class == "block.BlockFlowing" then
-            name = name .. "Flowing"
-        end
-        if class == "block.BlockStationary" then
-            name = name .. "Stationary"
-        end
-    end
-    if hardNames[mod] and hardNames[mod][name] then
-        name = hardNames[mod][name]
-    end
-
-    if hardIDs[mod] and hardIDs[mod][id] then
-        name = hardIDs[mod][id]
-    end
-    return name
+local function fixNameFromIndex(oldName, item, mod, index)
+    return oldName .. "_" .. index
 end
+
+
 
 local function fixCollisions(iTable, field, renameFunc)
     local refTable = gutil.cloneTable(iTable) -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
     for mod, names in pairs(refTable) do
         for name, items in pairs(names) do
-            if name ~= "null" and #items > 1 then -- Only consider cases with multiple items
+            if #items > 1 then -- Only consider cases with multiple items
                 local base = items[1][field]
                 local hasDifference = false
 
-                -- Check for differences in the specified field. (this is done rather than modifying the items as I find them to make it easier to remove the name from iTable, especially in instances where renameFunc resolves to the original name.
-                for _, item in ipairs(items) do
-                    if item[field] ~= base then
-                        hasDifference = true
-                        break
+                if field == "id" then
+                    table.sort(items, function(a, b)
+                        return tonumber(a.id) < tonumber(b.id)
+                    end)
+                    hasDifference = true
+                else
+                    -- Check for differences in the specified field. (this is done rather than modifying the items as I find them to make it easier to remove the name from iTable, especially in instances where renameFunc resolves to the original name.
+                    for _, item in ipairs(items) do
+                        if item[field] ~= base then
+                            hasDifference = true
+                            break
+                        end
                     end
                 end
-
                 -- If multiple differences are present, adjust names
                 if hasDifference then
                     iTable[mod][name] = nil
-                    for _, item in ipairs(items) do
-                        local newName = renameFunc(name, item, mod)
-                
+                    for index, item in ipairs(items) do
+                        local newName = renameFunc(name, item, mod, index)
+                        print(string.format("Renaming item with %s '%s' to '%s.%s'", field, item[field], mod, newName))
                         -- Ensure the new name exists under the mod
                         if not iTable[mod][newName] then
                             iTable[mod][newName] = {}
                         end
-                
+
                         -- Move the item to the new name
                         table.insert(iTable[mod][newName], item)
                     end
@@ -250,23 +232,61 @@ local function fixCollisions(iTable, field, renameFunc)
         end
     end
 end
-local function fixColType(iTable)
-    fixCollisions(iTable, "type", fixNameFromType)
+
+local function hardcodedRenameEarly(name, class, mod, id)
+    class = gstring.extractLastSegDot(class)
+    local hardClass = specialFixes.hardcoded.byClass[mod]
+    local hardName = specialFixes.hardcoded.byName[mod]
+    local hardID = specialFixes.hardcoded.byID[mod]
+    if hardClass and hardClass[class] then
+        name = hardClass[class]
+    end
+    if name == "null" then
+        local item = { class = class }
+        name = fixNameFromClassCore(name, item, mod, false)
+    end
+    if hardName and hardName[name] then
+        name = hardName[name]
+    end
+    if hardID and hardID[id] then
+        name = hardID[id]
+    end
+    return name
 end
 
-local function fixColClass(iTable)
-    fixCollisions(iTable, "class", fixNameFromClass)
-    fixCollisions(iTable, "class", fixNameFromClassPassTwo)
+local function testCollisions(iTable)
+    local collisions = ""
+
+    -- Iterate through all mods
+    for mod, names in pairs(iTable) do
+        -- Iterate through all names for the current mod
+        for name, entries in pairs(names) do
+            -- Check if there is more than one entry under this name
+            if #entries > 1 then
+                -- Write the mod and name to the file
+                collisions = collisions .. (string.format("Mod: %s, Name: %s\n", mod, name))
+                -- Write each entry's details
+                for i, item in ipairs(entries) do
+                    collisions = collisions .. (string.format("  Entry %d:\n", i))
+                    collisions = collisions .. (string.format("    ID: %s\n", item.id or "N/A"))
+                    collisions = collisions .. (string.format("    Type: %s\n", item.type or "N/A"))
+                    collisions = collisions .. (string.format("    Class: %s\n", item.class or "N/A"))
+                end
+                collisions = collisions .. "\n" -- Add an extra line for readability
+            end
+        end
+    end
+    return collisions
 end
 
 local itemTable = {}
 
-for i, row in ipairs(parsedCSV) do
-    local id = row[1]
-    local type = row[2]
-    local mod = row[3]:gsub(" ", "")
-    local unlocalised = row[4]
-    local class = row[5]
+for i, entry in ipairs(parsedCSV) do
+    local id = entry[1]
+    local type = entry[2]
+    local mod = entry[3]:gsub(" ", "")
+    local unlocalised = entry[4]
+    local class = entry[5]
 
     if unlocalised ~= "tile.ForgeFiller" and id ~= "ID" then
         if mod == "crowley.skyblock" then
@@ -296,12 +316,41 @@ for i, row in ipairs(parsedCSV) do
     end
 end
 
-fixColType(itemTable)
-fixColClass(itemTable)
-fixColType(itemTable)
-local serfile = serial.serialize(itemTable)
-serfile = serfile:gsub("}}},", "}}},\n"):gsub("}},", "}},\n")
-local output = "local itemTable = " .. "\n\n" .. serfile .. "\n\n" .. "return itemTable"
-gutil.strToFile("/itemTable.lua", output)
 
-print("Item Table generated to \"/itemTable.lua\"")
+fixCollisions(itemTable, "type", fixNameFromType)
+fixCollisions(itemTable, "class", fixNameFromClass)
+fixCollisions(itemTable, "class", fixNameFromClassPassTwo)
+fixCollisions(itemTable, "type", fixNameFromType)
+fixCollisions(itemTable, "id", fixNameFromIndex)
+local serfile
+local tablePath
+local collisionStr = testCollisions(itemTable)
+if collisionStr ~= "" then
+    gutil.angryPrint("Not all collisions fixed!, see " .. collisionFilePath)
+    gutil.strToFile(collisionFilePath, collisionStr)
+    serfile = serial.serialize(itemTable)
+    serfile = serfile:gsub("}}},", "}}},\n"):gsub("}},", "}},\n")
+    tablePath = "/itemTableBAD.lua"
+else
+    fs.remove(collisionFilePath)
+    for mod, names in pairs(itemTable) do
+        for name, items in pairs(names) do
+            -- Extract the single item
+            local item = items[1]
+            -- Replace the list with a flat structure
+            itemTable[mod][name] = {
+                id = items[1].id,
+                type = items[1].type,
+                class = items[1].class
+            }
+        end
+    end
+    serfile = serial.serialize(itemTable)
+    serfile = serfile:gsub("}},", "}},\n"):gsub("},", "},\n")
+    tablePath = "/itemTable.lua"
+end
+
+local output = "local itemTable = " .. "\n\n" .. serfile .. "\n\n" .. "return itemTable"
+gutil.strToFile(tablePath, output)
+
+print("Item Table generated to \"" .. tablePath .. "\"")
