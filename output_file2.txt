@@ -1,0 +1,548 @@
+Mod: computronics, Name: asielib_unknown
+  Entry 1:
+    ID: 28107
+    Type: Item
+    Class: pl.asie.lib.item.ItemMultiple
+  Entry 2:
+    ID: 28108
+    Type: Item
+    Class: item.ItemOpenComputers
+
+Mod: pamharvestcraft, Name: cloth_9
+  Entry 1:
+    ID: 3920
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3945
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_12
+  Entry 1:
+    ID: 3919
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3944
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_3
+  Entry 1:
+    ID: 3923
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3948
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_6
+  Entry 1:
+    ID: 3928
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3953
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_4
+  Entry 1:
+    ID: 3941
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3957
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_2
+  Entry 1:
+    ID: 3926
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3951
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_15
+  Entry 1:
+    ID: 3917
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3942
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_1
+  Entry 1:
+    ID: 3927
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3952
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_14
+  Entry 1:
+    ID: 3939
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3955
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_13
+  Entry 1:
+    ID: 3922
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3947
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_5
+  Entry 1:
+    ID: 3925
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3950
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_8
+  Entry 1:
+    ID: 3924
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3949
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_11
+  Entry 1:
+    ID: 3918
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3943
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_7
+  Entry 1:
+    ID: 3921
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3946
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_0
+  Entry 1:
+    ID: 3940
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3956
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: pamharvestcraft, Name: cloth_10
+  Entry 1:
+    ID: 3929
+    Type: Block
+    Class: BlockPamColoredClothSlab
+  Entry 2:
+    ID: 3954
+    Type: Block
+    Class: BlockPamColoredClothStairs
+
+Mod: exaliquo, Name: crook
+  Entry 1:
+    ID: 20418
+    Type: Item
+    Class: items.ReedCrook
+  Entry 2:
+    ID: 20419
+    Type: Item
+    Class: items.GoldCrook
+  Entry 3:
+    ID: 20420
+    Type: Item
+    Class: items.HayCrook
+
+Mod: exnihilo, Name: tin_ore
+  Entry 1:
+    ID: 3750
+    Type: Block
+    Class: blocks.ores.BlockAluminumOre
+  Entry 2:
+    ID: 3759
+    Type: Block
+    Class: blocks.ores.BlockTinOre
+
+Mod: ThermalExpansion, Name: tool
+  Entry 1:
+    ID: 20257
+    Type: Item
+    Class: item.tool.ItemWrench
+  Entry 2:
+    ID: 20258
+    Type: Item
+    Class: item.tool.ItemMultimeter
+
+Mod: ExtraTrees, Name: database
+  Entry 1:
+    ID: 14261
+    Type: Item
+    Class: item.ItemMothDatabase
+  Entry 2:
+    ID: 24256
+    Type: Item
+    Class: item.ItemDictionary
+
+Mod: ExtraTrees, Name: carpentry
+  Entry 1:
+    ID: 3703
+    Type: Block
+    Class: carpentry.BlockCarpentry
+  Entry 2:
+    ID: 3706
+    Type: Block
+    Class: carpentry.BlockCarpentryPanel
+
+Mod: ExtraTrees, Name: BlockETSlab
+  Entry 1:
+    ID: 3707
+    Type: Block
+    Class: block.BlockETSlab
+  Entry 2:
+    ID: 3708
+    Type: Block
+    Class: block.BlockETSlab
+
+Mod: BiblioCraft, Name: seatBack
+  Entry 1:
+    ID: 22492
+    Type: Item
+    Class: items.ItemSeatBack
+  Entry 2:
+    ID: 22493
+    Type: Item
+    Class: items.ItemSeatBack2
+  Entry 3:
+    ID: 22494
+    Type: Item
+    Class: items.ItemSeatBack3
+  Entry 4:
+    ID: 22495
+    Type: Item
+    Class: items.ItemSeatBack4
+  Entry 5:
+    ID: 22496
+    Type: Item
+    Class: items.ItemSeatBack5
+
+Mod: HungerOverhaul, Name: pumpkinStem
+  Entry 1:
+    ID: 104
+    Type: Block
+    Class: blocks.IguanaStem
+  Entry 2:
+    ID: 105
+    Type: Block
+    Class: blocks.IguanaStem
+
+Mod: Natura, Name: berrybush
+  Entry 1:
+    ID: 3255
+    Type: Block
+    Class: iguanaman.hungeroverhaul.blocks.IguanaBerryBushNether
+  Entry 2:
+    ID: 3257
+    Type: Block
+    Class: iguanaman.hungeroverhaul.blocks.IguanaBerryBush
+
+Mod: ComputerCraft, Name: ccturtle
+  Entry 1:
+    ID: 1527
+    Type: Block
+    Class: shared.turtle.blocks.BlockTurtle
+  Entry 2:
+    ID: 1528
+    Type: Block
+    Class: shared.turtle.blocks.BlockTurtle
+  Entry 3:
+    ID: 1530
+    Type: Block
+    Class: shared.turtle.blocks.BlockTurtle
+
+Mod: Mariculture, Name: ItemBackpack
+  Entry 1:
+    ID: 20500
+    Type: Item
+    Class: forestry.storage.items.ItemBackpack
+  Entry 2:
+    ID: 20501
+    Type: Item
+    Class: forestry.storage.items.ItemBackpack
+
+Mod: Minecraft, Name: woodSlab
+  Entry 1:
+    ID: 125
+    Type: Block
+    Class: block.BlockWoodSlab
+  Entry 2:
+    ID: 126
+    Type: Block
+    Class: block.BlockWoodSlab
+
+Mod: Minecraft, Name: pressurePlate
+  Entry 1:
+    ID: 70
+    Type: Block
+    Class: block.BlockPressurePlate
+  Entry 2:
+    ID: 72
+    Type: Block
+    Class: block.BlockPressurePlate
+
+Mod: Minecraft, Name: snow
+  Entry 1:
+    ID: 78
+    Type: Block
+    Class: block.BlockSnow
+  Entry 2:
+    ID: 80
+    Type: Block
+    Class: block.BlockSnowBlock
+
+Mod: Minecraft, Name: furnace
+  Entry 1:
+    ID: 61
+    Type: Block
+    Class: block.BlockFurnace
+  Entry 2:
+    ID: 62
+    Type: Block
+    Class: block.BlockFurnace
+
+Mod: Minecraft, Name: button
+  Entry 1:
+    ID: 77
+    Type: Block
+    Class: block.BlockButtonStone
+  Entry 2:
+    ID: 143
+    Type: Block
+    Class: block.BlockButtonWood
+
+Mod: Minecraft, Name: water
+  Entry 1:
+    ID: 8
+    Type: Block
+    Class: block.BlockFlowing
+  Entry 2:
+    ID: 9
+    Type: Block
+    Class: block.BlockStationary
+
+Mod: Minecraft, Name: comparator
+  Entry 1:
+    ID: 149
+    Type: Block
+    Class: block.BlockComparator
+  Entry 2:
+    ID: 150
+    Type: Block
+    Class: block.BlockComparator
+
+Mod: Minecraft, Name: sign
+  Entry 1:
+    ID: 63
+    Type: Block
+    Class: block.BlockSign
+  Entry 2:
+    ID: 68
+    Type: Block
+    Class: block.BlockSign
+
+Mod: Minecraft, Name: redstoneLight
+  Entry 1:
+    ID: 123
+    Type: Block
+    Class: block.BlockRedstoneLight
+  Entry 2:
+    ID: 124
+    Type: Block
+    Class: block.BlockRedstoneLight
+
+Mod: Minecraft, Name: mushroom
+  Entry 1:
+    ID: 39
+    Type: Block
+    Class: block.BlockMushroom
+  Entry 2:
+    ID: 40
+    Type: Block
+    Class: block.BlockMushroom
+  Entry 3:
+    ID: 99
+    Type: Block
+    Class: block.BlockMushroomCap
+  Entry 4:
+    ID: 100
+    Type: Block
+    Class: block.BlockMushroomCap
+
+Mod: Minecraft, Name: lava
+  Entry 1:
+    ID: 10
+    Type: Block
+    Class: block.BlockFlowing
+  Entry 2:
+    ID: 11
+    Type: Block
+    Class: block.BlockStationary
+
+Mod: Minecraft, Name: oreRedstone
+  Entry 1:
+    ID: 73
+    Type: Block
+    Class: block.BlockRedstoneOre
+  Entry 2:
+    ID: 74
+    Type: Block
+    Class: block.BlockRedstoneOre
+
+Mod: Minecraft, Name: notGate
+  Entry 1:
+    ID: 75
+    Type: Block
+    Class: block.BlockRedstoneTorch
+  Entry 2:
+    ID: 76
+    Type: Block
+    Class: block.BlockRedstoneTorch
+
+Mod: Minecraft, Name: stoneSlab
+  Entry 1:
+    ID: 43
+    Type: Block
+    Class: block.BlockStep
+  Entry 2:
+    ID: 44
+    Type: Block
+    Class: block.BlockStep
+
+Mod: Minecraft, Name: diode
+  Entry 1:
+    ID: 93
+    Type: Block
+    Class: block.BlockRedstoneRepeater
+  Entry 2:
+    ID: 94
+    Type: Block
+    Class: block.BlockRedstoneRepeater
+
+Mod: ExtraBees, Name: hiveFrame
+  Entry 1:
+    ID: 8816
+    Type: Item
+    Class: apiary.ItemHiveFrame
+  Entry 2:
+    ID: 8817
+    Type: Item
+    Class: apiary.ItemHiveFrame
+  Entry 3:
+    ID: 8818
+    Type: Item
+    Class: apiary.ItemHiveFrame
+  Entry 4:
+    ID: 8819
+    Type: Item
+    Class: apiary.ItemHiveFrame
+  Entry 5:
+    ID: 8820
+    Type: Item
+    Class: apiary.ItemHiveFrame
+
+Mod: TConstruct, Name: cloth
+  Entry 1:
+    ID: 3244
+    Type: Block
+    Class: blocks.SlabBase
+  Entry 2:
+    ID: 3245
+    Type: Block
+    Class: blocks.SlabBase
+
+Mod: TConstruct, Name: Smeltery
+  Entry 1:
+    ID: 1474
+    Type: Block
+    Class: blocks.SmelteryBlock
+  Entry 2:
+    ID: 3187
+    Type: Block
+    Class: blocks.SmelteryBlock
+
+Mod: TConstruct, Name: SearedBlock
+  Entry 1:
+    ID: 1477
+    Type: Block
+    Class: blocks.SearedBlock
+  Entry 2:
+    ID: 3188
+    Type: Block
+    Class: blocks.SearedBlock
+
+Mod: TConstruct, Name: LavaTank
+  Entry 1:
+    ID: 1473
+    Type: Block
+    Class: blocks.LavaTankBlock
+  Entry 2:
+    ID: 3186
+    Type: Block
+    Class: blocks.LavaTankBlock
+
+Mod: AppliedEnergistics, Name: AppEngMultiBlock
+  Entry 1:
+    ID: 851
+    Type: Block
+    Class: appeng.common.base.AppEngMultiBlock
+  Entry 2:
+    ID: 852
+    Type: Block
+    Class: appeng.common.base.AppEngMultiBlock
+  Entry 3:
+    ID: 853
+    Type: Block
+    Class: appeng.common.base.AppEngMultiBlock
+  Entry 4:
+    ID: 854
+    Type: Block
+    Class: appeng.common.base.AppEngMultiBlock
+
+Mod: AppliedEnergistics, Name: AppEng_Items_*
+  Entry 1:
+    ID: 4361
+    Type: Item
+    Class: appeng.common.base.AppEngMultiItem
+  Entry 2:
+    ID: 4373
+    Type: Item
+    Class: appeng.common.base.AppEngMultiChargeable
+
