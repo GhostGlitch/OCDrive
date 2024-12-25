@@ -6,84 +6,12 @@ local serial = require("serialization")
 
 local SrcCsvPath = "/item.csv"
 local ModCSVPath = "/temp/ghost/modcsv/"
-local  tempOutputDir = "/temp/ghost"
+local tempOutputDir = "/temp/ghost"
+local itemTablePath = "/itemTable.lua"
 local ModCSVBufferSize = 128
 
 local modList = {}
 local collisionFilePath = "/itemTableCollisions.txt"
-
-local function modFromLine(line)
-    local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-    mod = mod:gsub("%s", "")
-    if mod == "crowley.skyblock" then
-        mod = "exnihilo"
-    end
-    if mod == "AWWayofTime" then 
-        mod = "BloodMagic"
-    end
-    if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
-    return mod
-end
-local function saveBuffer(buffer, outputDir, mod)
-    print(mod)
-    local filePath = fs.concat(outputDir, mod .. ".csv")
-    local file = io.open(filePath, "a")
-    if not file then
-        error("Could not open file for writing: " .. filePath)
-    end
-    for _, bufferedLine in ipairs(buffer) do
-        file:write(bufferedLine .. "\n")
-    end
-    file:close()
-end
-
-local function splitByModBuffered(csvPath, outputDir, bufferSize)
-    if fs.isDirectory(outputDir) then
-        fs.remove(outputDir)
-    end
-    fs.makeDirectory(outputDir)
-    local csv = io.open(csvPath, "r")
-    if not csv then
-        error("Could not open input file: " .. csvPath)
-    end
-
-    local buffers = {} -- Buffers for mod data
-    local lineCount = 0
-
-    -- Read the file line by line
-    for line in csv:lines() do
-        local mod = modFromLine(line)
-        if mod then
-            if not modList[mod] then
-                modList[mod] = true -- Use the table as a set
-            end
-            -- Add the line to the buffer
-            if not buffers[mod] then
-                buffers[mod] = {}
-            end
-            table.insert(buffers[mod], line)
-
-            -- Write to file if buffer exceeds bufferSize
-            if #buffers[mod] >= bufferSize then
-                gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
-                saveBuffer(buffers[mod], outputDir, mod)
-                buffers[mod] = {} -- Clear the buffer
-            end
-        end
-        lineCount = lineCount + 1
-    end
-    gutil.uneasyPrint("READ DONE. DUMPING REMAINING")
-
-    -- Write remaining data in buffers
-    for mod, buffer in pairs(buffers) do
-        if #buffer > 0 then
-            saveBuffer(buffer, outputDir, mod)
-        end
-    end
-    csv:close()
-    print("Processed " .. lineCount .. " lines and split into mod-specific files.")
-end
-
 
 local specialFixes = {
     generalPat = {
@@ -176,6 +104,78 @@ local specialFixes = {
     }
 }
 
+local function modFromLine(line)
+    local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
+    mod = mod:gsub("%s", "")
+    if mod == "crowley.skyblock" then
+        mod = "exnihilo"
+    end
+    if mod == "AWWayofTime" then 
+        mod = "BloodMagic"
+    end
+    if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
+    return mod
+end
+local function saveBuffer(buffer, outputDir, mod)
+    print(mod)
+    local filePath = fs.concat(outputDir, mod .. ".csv")
+    local file = io.open(filePath, "a")
+    if not file then
+        error("Could not open file for writing: " .. filePath)
+    end
+    for _, bufferedLine in ipairs(buffer) do
+        file:write(bufferedLine .. "\n")
+    end
+    file:close()
+end
+
+local function splitByModBuffered(csvPath, outputDir, bufferSize)
+    if fs.isDirectory(outputDir) then
+        fs.remove(outputDir)
+    end
+    fs.makeDirectory(outputDir)
+    local csv = io.open(csvPath, "r")
+    if not csv then
+        error("Could not open input file: " .. csvPath)
+    end
+
+    local buffers = {} -- Buffers for mod data
+    local lineCount = 0
+
+    -- Read the file line by line
+    for line in csv:lines() do
+        local mod = modFromLine(line)
+        if mod then
+            if not modList[mod] then
+                modList[mod] = true -- Use the table as a set
+            end
+            -- Add the line to the buffer
+            if not buffers[mod] then
+                buffers[mod] = {}
+            end
+            table.insert(buffers[mod], line)
+
+            -- Write to file if buffer exceeds bufferSize
+            if #buffers[mod] >= bufferSize then
+                gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
+                saveBuffer(buffers[mod], outputDir, mod)
+                buffers[mod] = {} -- Clear the buffer
+            end
+        end
+        lineCount = lineCount + 1
+    end
+    gutil.uneasyPrint("READ DONE. DUMPING REMAINING")
+
+    -- Write remaining data in buffers
+    for mod, buffer in pairs(buffers) do
+        if #buffer > 0 then
+            saveBuffer(buffer, outputDir, mod)
+        end
+    end
+    csv:close()
+    print("Processed " .. lineCount .. " lines and split into mod-specific files.")
+end
+
 
 local function stripMod(str, mod, modAliases)
     local modmask
@@ -233,11 +233,13 @@ end
 
 
 local function fixNameFromType(oldName, item, mod)
-    return oldName .. "_" .. item.type
+    if item.type == "Block" then
+        return oldName .. "Block"
+    end
+    return oldName
 end
 
 local function fixNameFromClassCore(oldName, item, mod, tryPostfix)
-    
     local classFinal = gstring.extractLastSegDot(item.class)
     local newName = classFinal
     local prefix, number = oldName:match("(%a+)[_%.]?(%d+)")
@@ -279,44 +281,42 @@ end
 
 
 
-local function fixCollisions(iTable, field, renameFunc)
+local function fixCollisions(mTable, mod,  field, renameFunc)
     --local refTable = gutil.cloneTable(iTable) -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
-    for mod, names in pairs(iTable) do
-        local refNames = gutil.cloneTable(names)
-        for name, items in pairs(refNames) do
-            if #items > 1 then -- Only consider cases with multiple items
-                local base = items[1][field]
-                local hasDifference = false
+    local refNames = gutil.cloneTable(mTable)
+    for name, items in pairs(refNames) do
+        if #items > 1 then -- Only consider cases with multiple items
+            local base = items[1][field]
+            local hasDifference = false
 
-                if field == "id" then
-                    table.sort(items, function(a, b)
-                        return tonumber(a.id) < tonumber(b.id)
-                    end)
-                    hasDifference = true
-                else
-                    -- Check for differences in the specified field. (this is done rather than modifying the items as I find them to make it easier to remove the name from iTable, especially in instances where renameFunc resolves to the original name.
-                    for _, item in ipairs(items) do
-                        if item[field] ~= base then
-                            hasDifference = true
-                            break
-                        end
+            if field == "id" then
+                table.sort(items, function(a, b)
+                    return tonumber(a.id) < tonumber(b.id)
+                end)
+                hasDifference = true
+            else
+                -- Check for differences in the specified field. (this is done rather than modifying the items as I find them to make it easier to remove the name from iTable, especially in instances where renameFunc resolves to the original name.
+                for _, item in ipairs(items) do
+                    if item[field] ~= base then
+                        hasDifference = true
+                        break
                     end
                 end
-                -- If multiple differences are present, adjust names
-                if hasDifference then
-                    iTable[mod][name] = nil
-                    for index, item in ipairs(items) do
-                        local newName = renameFunc(name, item, mod, index)
-                        print(string.format("Renaming item with %s '%s' from '%s' to '%s.%s'", field, item[field], name, mod, newName))
-                        -- Ensure the new name exists under the mod
-                        if not iTable[mod][newName] then
-                            iTable[mod][newName] = {}
-                        end
-
-                        -- Move the item to the new name
-                        table.insert(iTable[mod][newName], item)
+            end
+            -- If multiple differences are present, adjust names
+            if hasDifference then
+                mTable[name] = nil
+                for index, item in ipairs(items) do
+                    local newName = renameFunc(name, item, mod, index)
+                    print(string.format("Renaming item with %s '%s' from '%s' to '%s.%s'", field, item[field], name, mod, newName))
+                    -- Ensure the new name exists under the mod
+                    if not mTable[newName] then
+                        mTable[newName] = {}
                     end
+
+                    -- Move the item to the new name
+                    table.insert(mTable[newName], item)
                 end
             end
         end
@@ -344,26 +344,23 @@ local function hardcodedRenameEarly(name, class, mod, id)
     return name
 end
 
-local function testCollisions(iTable)
+local function testCollisions(mTable, mod)
     local collisions = ""
 
     -- Iterate through all mods
-    for mod, names in pairs(iTable) do
-        -- Iterate through all names for the current mod
-        for name, entries in pairs(names) do
-            -- Check if there is more than one entry under this name
-            if #entries > 1 then
-                -- Write the mod and name to the file
-                collisions = collisions .. (string.format("Mod: %s, Name: %s\n", mod, name))
-                -- Write each entry's details
-                for i, item in ipairs(entries) do
-                    collisions = collisions .. (string.format("  Entry %d:\n", i))
-                    collisions = collisions .. (string.format("    ID: %s\n", item.id or "N/A"))
-                    collisions = collisions .. (string.format("    Type: %s\n", item.type or "N/A"))
-                    collisions = collisions .. (string.format("    Class: %s\n", item.class or "N/A"))
-                end
-                collisions = collisions .. "\n" -- Add an extra line for readability
+    for name, entries in pairs(mTable) do
+        -- Check if there is more than one entry under this name
+        if #entries > 1 then
+            -- Write the mod and name to the file
+            collisions = collisions .. (string.format("Mod: %s, Name: %s\n", mod, name))
+            -- Write each entry's details
+            for i, item in ipairs(entries) do
+                collisions = collisions .. (string.format("  Entry %d:\n", i))
+                collisions = collisions .. (string.format("    ID: %s\n", item.id or "N/A"))
+                collisions = collisions .. (string.format("    Type: %s\n", item.type or "N/A"))
+                collisions = collisions .. (string.format("    Class: %s\n", item.class or "N/A"))
             end
+            collisions = collisions .. "\n" -- Add an extra line for readability
         end
     end
     return collisions
@@ -371,7 +368,8 @@ end
 
 local itemTable = {}
 
-local function constructTable(iTable, mod)
+local function constructModTable(mod)
+    local mTable = {}
     local path = fs.concat(ModCSVPath, mod .. ".csv")
     print(path)
     local csv = io.open(path, "r")
@@ -381,91 +379,95 @@ local function constructTable(iTable, mod)
     for line in csv:lines() do      
         line = line:gsub("\13", ""):gsub("\n", ""):gsub("\r", "")
         local id, type, _, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-                local parsedName = cleanName(unlocalised, mod)
-                local parsedClass = cleanClass(class, mod)
-                parsedName = hardcodedRenameEarly(parsedName, parsedClass, mod, id)
+        local parsedName = cleanName(unlocalised, mod)
+        local parsedClass = cleanClass(class, mod)
+        parsedName = hardcodedRenameEarly(parsedName, parsedClass, mod, id)
 
-                -- Ensure the mod key exists in the nestedTable
-                if not iTable[mod] then
-                    iTable[mod] = {}
-                end
-                if not iTable[mod][parsedName] then
-                    iTable[mod][parsedName] = {}
-                end
+        if not mTable[parsedName] then
+            mTable[parsedName] = {}
+        end
 
-                -- Add the ID entry under the mod key
-                table.insert(iTable[mod][parsedName], {
-                    ["id"] = id,
-                    ["type"] = type,
-                    ["class"] = parsedClass
-                })
-            end
+        -- Add the ID entry under the mod key
+        table.insert(mTable[parsedName], {
+            ["id"] = id,
+            ["type"] = type,
+            ["class"] = parsedClass
+        })
+    end
     csv:close()
     fs.remove(path)
+    return mTable
 end
-local function finalPass(iTable)
+local function finalPass(mTable, mod)
     --local refTable = gutil.cloneTable(iTable) -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
-    for mod, names in pairs(iTable) do
-        local refNames = gutil.cloneTable(names)
-        for name, items in pairs(refNames) do
-            -- If multiple differences are present, adjust names
-            iTable[mod][name] = nil
-            for index, item in ipairs(items) do
-                local tmp = gstring.stripIgnoreCase(name, "block", true)
-                if tmp ~= "" then 
-                    newName = tmp
+    local refNames = gutil.cloneTable(mTable)
+    for name, items in pairs(refNames) do
+        -- If multiple differences are present, adjust names
+        mTable[name] = nil
+        StorageBlocks = {
+            "iron", "gold", "lapis",
+            "diamond", "coal", "redstone", 
+            "emerald", "copper", "tin",
+            "lead", "silver",
+        }
+        for index, item in ipairs(items) do
+            local newName = name
+            local tmp = gstring.stripIgnoreCase(name, "block", true)
+            if tmp ~= "" then
+                for i, ingot in ipairs(StorageBlocks) do
+                    if ingot == tmp:lower() then
+                        tmp = tmp.."Block"
+                        break
+                    end
                 end
-
-                tmp = gstring.stripIgnoreCase(newName, "item", true)
-                if tmp ~= "" and tmp ~= "s" then 
-                    newName = tmp
-                end
-
-                tmp = gstring.stripIgnoreCase(newName, "tool[s]?_", true)
-                if tmp ~= "" then
-                    newName = tmp
-                end
-                tmp = gstring.stripIgnoreCase(newName, "armor_", true)
-                if tmp ~= "" then 
-                    newName = tmp
-                end
-                if mod == "TConstruct" then
-                    newName = newName:gsub("metal_molten", "molten")
-                end
-
-                if not iTable[mod][newName] then
-                    iTable[mod][newName] = {}
-                end
-
-                -- Move the item to the new name
-                table.insert(iTable[mod][newName], item)
+                newName = tmp
             end
+            local tmp = gstring.stripIgnoreCase(newName, "item", true)
+            if tmp ~= "" and tmp ~= "s" then 
+                newName = tmp
+            end
+
+            tmp = gstring.stripIgnoreCase(newName, "tool[s]?_", true)
+            if tmp ~= "" then
+                newName = tmp
+            end
+            tmp = gstring.stripIgnoreCase(newName, "armor_", true)
+            if tmp ~= "" then 
+                newName = tmp
+            end
+            if mod == "TConstruct" then
+                newName = newName:gsub("metal_molten", "molten")
+            end
+
+            if not mTable[newName] then
+                mTable[newName] = {}
+            end
+
+            -- Move the item to the new name
+            table.insert(mTable[newName], item)
         end
     end
 end
-local function saveMod(iTable, outputPath, mod)
+local function saveMod(mTable, mod, outputPath)
     gutil.happyPrint("saving " .. mod)
     local file = io.open(outputPath, "a")
-
-    for mod, names in pairs(iTable) do
-        file:write(string.format('    %s={\n', mod))
-        local nameKeys = {}
-        for name in pairs(names) do
-            table.insert(nameKeys, name)
-        end
-        table.sort(nameKeys, function(a, b)
-            return tonumber(names[a].id) < tonumber(names[b].id)
-        end)
-        for _, name in ipairs(nameKeys) do
-            local data = names[name]
-            file:write(string.format(
-                '        %s={id="%s", type="%s", class="%s"},\n',
-                name, data.id, data.type, data.class
-            ))
-        end
-        file:write("    },\n")
+    file:write(string.format('    %s={\n', mod))
+    local nameKeys = {}
+    for name in pairs(mTable) do
+        table.insert(nameKeys, name)
     end
+    table.sort(nameKeys, function(a, b)
+        return tonumber(mTable[a].id) < tonumber(mTable[b].id)
+    end)
+    for _, name in ipairs(nameKeys) do
+        local data = mTable[name]
+        file:write(string.format(
+            '        %s={id="%s", type="%s", class="%s"},\n',
+            name, data.id, data.type, data.class
+        ))
+    end
+    file:write("    },\n")
     file:close()
 end
 
@@ -475,42 +477,40 @@ if not fs.isDirectory( tempOutputDir) then
 end
 local tempOutputPath = fs.concat(tempOutputDir, "/itemTable.lua")
 local file = io.open(tempOutputPath, "w")
+if not file then
+    error("Could not open file for writing: " .. tempOutputPath)
+end
 file:write("local itemTable={\n")
 file:close()
-local modNames = {}
-for mod in pairs(modList) do
-    table.insert(modNames, mod)
-end
-table.sort(modNames)
+local modNames = gutil.sortKeys(modList)
 
 -- Iterate alphabetically
 for _, mod in ipairs(modNames) do
-
-    local modTable = {}
     print(mod)
-    constructTable(modTable, mod)
-    fixCollisions(modTable, "type", fixNameFromType)
-    fixCollisions(modTable, "class", fixNameFromClass)
-    fixCollisions(modTable, "class", fixNameFromClassPassTwo)
+    local modTable = constructModTable(mod)
+    fixCollisions(modTable, mod, "type", fixNameFromType)
+    fixCollisions(modTable, mod, "class", fixNameFromClass)
+    fixCollisions(modTable, mod, "class", fixNameFromClassPassTwo)
 
-    finalPass(modTable)
-    fixCollisions(modTable, "type", fixNameFromType)
-    fixCollisions(modTable, "id", fixNameFromIndex)
-    local collisionStr = testCollisions(modTable)
+    finalPass(modTable, mod)
+    fixCollisions(modTable, mod, "type", fixNameFromType)
+    
+    fixCollisions(modTable, mod, "id", fixNameFromIndex)
+    local collisionStr = testCollisions(modTable, mod)
     if collisionStr ~= "" then
         -- needs improvement
         gutil.angryPrint("Not all collisions fixed!, see " .. collisionFilePath)
         gutil.strToFile(collisionFilePath, collisionStr)
     end
-    for mod, names in pairs(modTable) do
-        for name, items in pairs(names) do
+        for name, items in pairs(modTable) do
             -- Replace the list with a flat structure
-            modTable[mod][name] = items[1]
+            modTable[name] = items[1]
         end
 
         tablePath = "/temp/tables/"
-        saveMod(modTable, tempOutputPath, mod)
-    end
+    saveMod(modTable, mod, tempOutputPath)
+        os.sleep(.001)
+    
 end
 
 
@@ -518,7 +518,8 @@ local file = io.open(tempOutputPath, "a")
 file:write("}\n\nreturn itemTable")
 file:close()
 
-fs.remove("/temp/ghost")
-fs.rename(tempOutputPath, "/itemTable.lua")
+fs.remove(itemTablePath)
+fs.rename(tempOutputPath, itemTablePath)
+fs.remove(tempOutputDir)
 
---print("Item Table generated to \"" .. tablePath .. "\"")
+print("Item Table generated to \"" .. itemTablePath .. "\"")
