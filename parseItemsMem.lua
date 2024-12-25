@@ -84,7 +84,7 @@ local specialFixes = {
                 ["63"] = "signStanding",
                 ["68"] = "signWall",
                 ["70"] = "pressurePlateStone",
-                ["72"] = "pressurePlanteWood",
+                ["72"] = "pressurePlateWood",
                 ["73"] = "redstoneOreOff",
                 ["74"] = "redstoneOreOn",
                 ["75"] = "redstoneTorchOff",
@@ -452,11 +452,15 @@ end
 local function normalizeNames(mTable)
     local refNames = gutil.cloneTable(mTable)
     for name, data in pairs(refNames) do
-        local n, ame = name:match("(.)(.*)")
-        local newName = n:lower() .. ame
+        local newName = name
+        if name ~= name:upper() then
+            local n, ame = name:match("(.)(.*)")
+            newName = n:lower() .. ame
+        else
+            newName = name
+        end
         while true do
-            print(name, newName)
-            os.sleep(.001)
+
             local first, second = newName:match("(.*)_(.*)")
 
             if not second then
@@ -465,16 +469,12 @@ local function normalizeNames(mTable)
             if tonumber(second) then
                 break
             end
-            print(first, second)
              
 
             local s, econd = second:match("(.)(.*)")
             second = s:upper() .. econd
             newName = first .. second
         end
-
-
-
         mTable[name] = nil
         mTable[newName] = refNames[name]
     end
