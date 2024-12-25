@@ -407,7 +407,7 @@ local function finalPass(mTable, mod)
         mTable[name] = nil
         StorageBlocks = {
             "iron", "gold", "lapis",
-            "diamond", "coal", "redstone", 
+            "diamond", "coal", "redstone",
             "emerald", "copper", "tin",
             "lead", "silver",
         }
@@ -417,14 +417,14 @@ local function finalPass(mTable, mod)
             if tmp ~= "" then
                 for i, ingot in ipairs(StorageBlocks) do
                     if ingot == tmp:lower() then
-                        tmp = tmp.."Block"
+                        tmp = tmp .. "Block"
                         break
                     end
                 end
                 newName = tmp
             end
             local tmp = gstring.stripIgnoreCase(newName, "item", true)
-            if tmp ~= "" and tmp ~= "s" then 
+            if tmp ~= "" and tmp ~= "s" then
                 newName = tmp
             end
 
@@ -433,7 +433,7 @@ local function finalPass(mTable, mod)
                 newName = tmp
             end
             tmp = gstring.stripIgnoreCase(newName, "armor_", true)
-            if tmp ~= "" then 
+            if tmp ~= "" then
                 newName = tmp
             end
             if mod == "TConstruct" then
@@ -447,6 +447,36 @@ local function finalPass(mTable, mod)
             -- Move the item to the new name
             table.insert(mTable[newName], item)
         end
+    end
+end
+local function normalizeNames(mTable)
+    local refNames = gutil.cloneTable(mTable)
+    for name, data in pairs(refNames) do
+        local n, ame = name:match("(.)(.*)")
+        local newName = n:lower() .. ame
+        while true do
+            print(name, newName)
+            os.sleep(.001)
+            local first, second = newName:match("(.*)_(.*)")
+
+            if not second then
+                break
+            end
+            if tonumber(second) then
+                break
+            end
+            print(first, second)
+             
+
+            local s, econd = second:match("(.)(.*)")
+            second = s:upper() .. econd
+            newName = first .. second
+        end
+
+
+
+        mTable[name] = nil
+        mTable[newName] = refNames[name]
     end
 end
 local function saveMod(mTable, mod, outputPath)
@@ -502,12 +532,13 @@ for _, mod in ipairs(modNames) do
         gutil.angryPrint("Not all collisions fixed!, see " .. collisionFilePath)
         gutil.strToFile(collisionFilePath, collisionStr)
     end
-        for name, items in pairs(modTable) do
-            -- Replace the list with a flat structure
-            modTable[name] = items[1]
-        end
+    for name, items in pairs(modTable) do
+        -- Replace the list with a flat structure
+        modTable[name] = items[1]
+    end
 
-        tablePath = "/temp/tables/"
+    tablePath = "/temp/tables/"
+    normalizeNames(modTable)
     saveMod(modTable, mod, tempOutputPath)
         os.sleep(.001)
     
