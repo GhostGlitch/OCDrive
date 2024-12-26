@@ -18,7 +18,9 @@ local specialFixes = {
         name = {
             "^tile[s]?%.",    -- Remove "tile." at the start
             "^block[s]?%.",   -- Remove "block." at the start
-            "^item[s]?%.",      -- Remove "item." at the start
+            "^item[s]?%.",  -- Remove "item." at the start
+            "^tool[s]?%.",
+            "^armo[u]?r%.",
             
         }
     },
@@ -228,8 +230,7 @@ end
 -- Function to clean a string by removing all matching patterns
 local function cleanName(name, mod)
     local modsufixes = {
-        HungerOverhaul = "Item",
-        pamharvestcraft = "Item",
+
     }
     for _, pattern in ipairs(specialFixes.generalPat.name) do
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
@@ -240,9 +241,12 @@ local function cleanName(name, mod)
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
     end
     name = stripPre(name, mod, specialFixes.modPrefixes.name)
-    if modsufixes[mod] then
-        name = gstring.stripIgnoreCase(name, modsufixes[mod].. "$")
+    local lowername = name:lower()
+    if lowername ~= "item" and lowername ~= "cheatyitem"
+    and lowername~= "multiitem" and lowername ~= "cheatitem" then
+        name = gstring.stripIgnoreCase(name, "Item$")
     end
+
     name = name:gsub("[%/%.]", "_")
     return name
 end
@@ -427,8 +431,8 @@ local function finalPass(mTable, mod)
             "lead", "silver",
         }
         for index, item in ipairs(items) do
-            local newName = name
-            local tmp = gstring.stripIgnoreCase(name, "block", true)
+
+            tmp = gstring.stripIgnoreCase(name, "block", true)
             if tmp ~= "" then
                 for i, ingot in ipairs(StorageBlocks) do
                     if ingot == tmp:lower() then
@@ -438,19 +442,11 @@ local function finalPass(mTable, mod)
                 end
                 newName = tmp
             end
-            local tmp = gstring.stripIgnoreCase(newName, "item", true)
+            tmp = gstring.stripIgnoreCase(newName, "item", true)
             if tmp ~= "" and tmp ~= "s" then
                 newName = tmp
             end
 
-            tmp = gstring.stripIgnoreCase(newName, "tool[s]?_", true)
-            if tmp ~= "" then
-                newName = tmp
-            end
-            tmp = gstring.stripIgnoreCase(newName, "armor_", true)
-            if tmp ~= "" then
-                newName = tmp
-            end
             if mod == "TConstruct" then
                 newName = newName:gsub("metal_molten", "molten")
             end
@@ -471,24 +467,22 @@ local function normalizeNames(mTable)
         if name ~= name:upper() then
             local n, ame = name:match("(.)(.*)")
             newName = n:lower() .. ame
-        else
-            newName = name
         end
         while true do
-
             local first, second = newName:match("(.*)_(.*)")
-
             if not second then
                 break
             end
             if tonumber(second) then
                 break
             end
-             
-
             local s, econd = second:match("(.)(.*)")
             second = s:upper() .. econd
             newName = first .. second
+        end
+        local prefix, number = newName:match("(%a+[^T_])(%d+)")
+        if number and not prefix:match("Tier$") then
+            newName = prefix .. "_" .. number
         end
         mTable[name] = nil
         mTable[newName] = refNames[name]
