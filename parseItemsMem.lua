@@ -19,34 +19,60 @@ local specialFixes = {
             "^tile[s]?%.",    -- Remove "tile." at the start
             "^block[s]?%.",   -- Remove "block." at the start
             "^item[s]?%.",      -- Remove "item." at the start
-            " %- this item is just used to mime fluids!"
+            
         }
     },
     modAliases = {
-        --for mods which use a different name for their identifier, and in item names. MUST be lowercase.
+        --for mods which use a different name for their identifier, and in item names.
         name = {
-            hungeroverhaul = "pamharvestcraft",
-            opencomputers = "oc",
-            forgemicroblock = "microblock",
-            extrautilities = "extrautils",
-            iguanatweakstconstruct = "tconstruct",
-            minefactoryreloaded = "mfr",
-            exnihilo = "crowley%.skyblock",
-            appliedenergistics = "appeng",
+            AppliedEnergistics     = "appeng",
+            exnihilo               = "crowley%.skyblock",
+            ExtraUtilities         = "extrautils",
+            Forestry               = "for",
+            ForgeMicroblock        = "microblock",
+            HungerOverhaul         = "pamharvestcraft",
+            IguanaTweaksTConstruct = "tconstruct",
+            MineFactoryReloaded    = "mfr",
+            OpenComputers          = "oc",
         },
-        --for mods which use a different name for their identifier, and in class paths. MUST be lowercase.
+        --for mods which use a different name for their identifier, and in class paths.
         class = {
-            bloodmagic = "alchemicalwizardry",
-            appliedenergistics = "appeng",
-            jabba = "betterbarrels",
-            opencomputers = "oc",
-            openperipheral = "openperipheral.addons",
-            extrautilities = "extrautils",
-            forgemicroblock = "microblock"
+            AppliedEnergistics     = "appeng",
+            BloodMagic             = "alchemicalwizardry",
+            ExtraUtilities         = "extrautils",
+            ForgeMicroblock        = "microblock",
+            JABBA                  = "betterbarrels",
+            OpenComputers          = "oc",
+            OpenPeripheral         = "openperipheral%.addons",
         },
         --for mods which use two different names in class paths. MUST be lowercase.
         classPassTwo = {
             gendustry = "bdew",
+        },
+    },
+    modPrefixes = {
+        name = {
+            first = {
+                HardcoreQuesting = "hqm",
+                ComputerCraft = "cc",
+                BigReactors = "br",
+                BiblioCraft = "Biblio"
+            },
+            second = {
+                BigReactors = "blockBR"
+            },
+        },
+        classAsName = {
+            first = {
+                AppliedEnergistics = "AppEng",
+                pamharvestcraft = "BlockPam",
+                ExtraTrees = "BlockET",
+                BigReactors = "BR"
+            },
+            second = {
+                pamharvestcraft = "ItemPam",
+                ExtraTrees = "ItemET",
+            }
         },
     },
     hardcoded = {
@@ -58,24 +84,25 @@ local specialFixes = {
             },
             BiblioCraft = {
                 theca = "Bookcase",
-            }
+            },
         },
         byClass = {
             extracells = {
                 ItemSecureStoragePhysicalEncrypted = "SecureStorageEncrypted",
                 ItemSecureStoragePhysicalDecrypted = "SecureStorageDecrypted",
+                ItemFluidDisplay = "FluidDisplay"
             },
             ExtraTrees = {
                 ItemMothDatabase = "mothDatabase"
             }
         },
-        byID = {        
+        byID = {
             HungerOverhaul = { ["105"] = "melonStem" },
             Minecraft = {
                 ["8"] = "waterFlowing",
-                ["9"] = "waterStationary",
+                ["9"] = "waterStill",
                 ["10"] = "lavaFlowing",
-                ["11"] = "lavaStationary",
+                ["11"] = "lavaStill",
                 ["39"] = "mushroomBrown",
                 ["40"] = "mushroomRed",
                 ["43"] = "stoneSlabDouble",
@@ -110,7 +137,7 @@ local function modFromLine(line)
     if mod == "crowley.skyblock" then
         mod = "exnihilo"
     end
-    if mod == "AWWayofTime" then 
+    if mod == "AWWayofTime" then
         mod = "BloodMagic"
     end
     if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
@@ -179,25 +206,27 @@ end
 
 local function stripMod(str, mod, modAliases)
     local modmask
-    local lowerMod = mod:lower()
     if modAliases then
-        modmask = modAliases[lowerMod] or lowerMod
+        modmask = modAliases[mod] or mod
     else
-        modmask = lowerMod
+        modmask = mod
     end
+    modmask = modmask:lower()
     local stripStr = (modmask .. "[:%.]")
-    str = gstring.stripIgnoreCase(str, stripStr, true, true)
+    return gstring.stripIgnoreCase(str, stripStr, true, true)
+end
+local function stripPre(str, mod, prefixTable)
+    if prefixTable.first[mod] then
+        str = gstring.stripIgnoreCase(str, prefixTable.first[mod], true)
+    end
+    if prefixTable.second[mod] then
+        str = gstring.stripIgnoreCase(str, prefixTable.second[mod], true)
+    end
     return str
 end
+
 -- Function to clean a string by removing all matching patterns
 local function cleanName(name, mod)
-    local modprefixes = {
-        HardcoreQuesting = "hqm",
-        ComputerCraft = "cc",
-        BigReactors = "br",
-        Forestry = "for%.",
-        BiblioCraft = "Biblio"
-    }
     local modsufixes = {
         HungerOverhaul = "Item",
         pamharvestcraft = "Item",
@@ -210,9 +239,7 @@ local function cleanName(name, mod)
     for _, pattern in ipairs(specialFixes.generalPat.name) do
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
     end
-    if modprefixes[mod] then
-        name = gstring.stripIgnoreCase(name, modprefixes[mod], true)
-    end
+    name = stripPre(name, mod, specialFixes.modPrefixes.name)
     if modsufixes[mod] then
         name = gstring.stripIgnoreCase(name, modsufixes[mod].. "$")
     end
@@ -250,19 +277,7 @@ local function fixNameFromClassCore(oldName, item, mod, tryPostfix)
             newName = oldName .. classPostfix
         end
     end
-    newName = gstring.stripIgnoreCase(newName, "[Bb]lock", true)
-    if newName ~= "item" and newName ~= "items" then
-    newName = gstring.stripIgnoreCase(newName, "[Ii]tem", true)
-    end
-    local modprefixes = {
-        AppliedEnergistics = "AppEng",
-        pamharvestcraft = "Pam",
-        ExtraTrees = "ET",
-        BigReactors = "BR"
-    }
-    if modprefixes[mod] then
-        newName = gstring.stripIgnoreCase(newName, modprefixes[mod], true)
-    end
+    newName = stripPre(newName, mod, specialFixes.modPrefixes.classAsName)
     if number then
         newName = newName .. "_" .. number
     end
