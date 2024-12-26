@@ -26,9 +26,16 @@ local specialFixes = {
             "^core%.",
             "^common%.",
             "^shared%.",
+            "^base%.",
+            "item[s]%.",
+            "block[s]%.",
         }
     },
     modAliases = {
+        general = {
+            ["crowley.skyblock"] = "exnihilo",
+            AWWayofTime = "BloodMagic"
+        },
         --for mods which use a different name for their identifier, and in item names.
         name = {
             AppliedEnergistics     = "appeng",
@@ -49,11 +56,12 @@ local specialFixes = {
             ForgeMicroblock        = "microblock",
             JABBA                  = "betterbarrels",
             OpenComputers          = "oc",
-            OpenPeripheral         = "openperipheral%.addons",
+            OpenPeripheral         = "openperipheral%.addons"
         },
-        --for mods which use two different names in class paths. MUST be lowercase.
+        --for mods which use two different names in class paths.
         classPassTwo = {
             gendustry = "bdew",
+            ThermalExpansion = "cofh"
         },
     },
     modPrefixes = {
@@ -150,12 +158,8 @@ local specialFixes = {
 local function modFromLine(line)
     local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
     mod = mod:gsub("%s", "")
-    if mod == "crowley.skyblock" then
-        mod = "exnihilo"
-    end
-    if mod == "AWWayofTime" then
-        mod = "BloodMagic"
-    end
+
+    mod = specialFixes.modAliases.general[mod] or mod
     if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
     return mod
 end
@@ -409,7 +413,7 @@ local function constructModTable(mod)
     print(path)
     local csv = gutil.open(path, "r")
     for line in csv:lines() do
-        line = line:gsub("\13", ""):gsub("\n", ""):gsub("\r", "")
+        line = line:gsub("[\13\n\r]", "")
         local id, type, _, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
         local parsedName = cleanName(unlocalised, mod)
         local parsedClass = cleanClass(class, mod)
