@@ -2,7 +2,6 @@
 local fs = require("filesystem")
 local gutil = require("ghostUtils")
 local gstring = require("ghostString")
-local serial = require("serialization")
 
 local SrcCsvPath = "/item.csv"
 local ModCSVPath = "/temp/ghost/modcsv/"
@@ -21,7 +20,12 @@ local specialFixes = {
             "^item[s]?%.",  -- Remove "item." at the start
             "^tool[s]?%.",
             "^armo[u]?r%.",
-            
+        },
+        class = {
+           "iguanaman.",
+            "^core%.",
+            "^common%.",
+            "^shared%.",
         }
     },
     modAliases = {
@@ -77,6 +81,16 @@ local specialFixes = {
             }
         },
     },
+    modSubs = {
+        name = {
+            TConstruct = {
+                ["metal.molten"] = "molten"
+            },
+            extracells = {
+                [" %- this item is just used to mime fluids!"] = ""
+            }
+        }
+    },
     hardcoded = {
         byName = {
             Minecraft = {
@@ -92,7 +106,6 @@ local specialFixes = {
             extracells = {
                 ItemSecureStoragePhysicalEncrypted = "SecureStorageEncrypted",
                 ItemSecureStoragePhysicalDecrypted = "SecureStorageDecrypted",
-                ItemFluidDisplay = "FluidDisplay"
             },
             ExtraTrees = {
                 ItemMothDatabase = "mothDatabase"
@@ -133,6 +146,7 @@ local specialFixes = {
     }
 }
 
+
 local function modFromLine(line)
     local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
     mod = mod:gsub("%s", "")
@@ -148,10 +162,7 @@ end
 local function saveBuffer(buffer, outputDir, mod)
     print(mod)
     local filePath = fs.concat(outputDir, mod .. ".csv")
-    local file = io.open(filePath, "a")
-    if not file then
-        error("Could not open file for writing: " .. filePath)
-    end
+    local file = gutil.open(filePath, "a")
     for _, bufferedLine in ipairs(buffer) do
         file:write(bufferedLine .. "\n")
     end
@@ -163,10 +174,7 @@ local function splitByModBuffered(csvPath, outputDir, bufferSize)
         fs.remove(outputDir)
     end
     fs.makeDirectory(outputDir)
-    local csv = io.open(csvPath, "r")
-    if not csv then
-        error("Could not open input file: " .. csvPath)
-    end
+    local csv = gutil.open(csvPath, "r")
 
     local buffers = {} -- Buffers for mod data
     local lineCount = 0
@@ -229,9 +237,6 @@ end
 
 -- Function to clean a string by removing all matching patterns
 local function cleanName(name, mod)
-    local modsufixes = {
-
-    }
     for _, pattern in ipairs(specialFixes.generalPat.name) do
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
     end
@@ -241,10 +246,17 @@ local function cleanName(name, mod)
         name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
     end
     name = stripPre(name, mod, specialFixes.modPrefixes.name)
+
     local lowername = name:lower()
     if lowername ~= "item" and lowername ~= "cheatyitem"
-    and lowername~= "multiitem" and lowername ~= "cheatitem" then
+        and lowername ~= "multiitem" and lowername ~= "cheatitem" then
         name = gstring.stripIgnoreCase(name, "Item$")
+    end
+
+    if specialFixes.modSubs.name[mod] then
+        for from, to in pairs(specialFixes.modSubs.name[mod]) do
+            name = name:gsub(from, to)
+        end
     end
 
     name = name:gsub("[%/%.]", "_")
@@ -257,13 +269,16 @@ local function cleanClass(class, mod)
     if specialFixes.modAliases.classPassTwo[mod] then
         class = stripMod(class, specialFixes.modAliases.classPassTwo[mod])
     end
-    class = class:gsub("iguanaman.", "")
+    for _, pattern in ipairs(specialFixes.generalPat.class) do
+        class = gstring.stripIgnoreCase(class, pattern) -- Apply each pattern
+    end
+    class = class:gsub("^item[s]?%.Item", "Item")
+    class = class:gsub("^block[s]?%.Block", "Block")
     return class
 end
 
 
-
-local function fixNameFromType(oldName, item, mod)
+local function fixNameFromType(oldName, item, _)
     if item.type == "Block" then
         return oldName .. "Block"
     end
@@ -294,14 +309,14 @@ local function fixNameFromClassPassTwo(oldName, item, mod)
     return fixNameFromClassCore(oldName, item, mod, false)
 end
 
-local function fixNameFromIndex(oldName, item, mod, index)
+local function fixNameFromIndex(oldName, _, _, index)
     return oldName .. "_" .. index
 end
 
 
 
 local function fixCollisions(mTable, mod,  field, renameFunc)
-    --local refTable = gutil.cloneTable(iTable) -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
+    -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
     local refNames = gutil.cloneTable(mTable)
     for name, items in pairs(refNames) do
@@ -315,7 +330,10 @@ local function fixCollisions(mTable, mod,  field, renameFunc)
                 end)
                 hasDifference = true
             else
-                -- Check for differences in the specified field. (this is done rather than modifying the items as I find them to make it easier to remove the name from iTable, especially in instances where renameFunc resolves to the original name.
+                -- Check for differences in the specified field.
+                -- (this is done rather than modifying the items as I find them to
+                -- make it easier to remove the name from mTable,
+                -- especially in instances where renameFunc resolves to the original name.)
                 for _, item in ipairs(items) do
                     if item[field] ~= base then
                         hasDifference = true
@@ -385,17 +403,12 @@ local function testCollisions(mTable, mod)
     return collisions
 end
 
-local itemTable = {}
-
 local function constructModTable(mod)
     local mTable = {}
     local path = fs.concat(ModCSVPath, mod .. ".csv")
     print(path)
-    local csv = io.open(path, "r")
-    if not csv then
-        error("Could not open item.csv for reading")
-    end
-    for line in csv:lines() do      
+    local csv = gutil.open(path, "r")
+    for line in csv:lines() do
         line = line:gsub("\13", ""):gsub("\n", ""):gsub("\r", "")
         local id, type, _, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
         local parsedName = cleanName(unlocalised, mod)
@@ -418,23 +431,24 @@ local function constructModTable(mod)
     return mTable
 end
 local function finalPass(mTable, mod)
-    --local refTable = gutil.cloneTable(iTable) -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
+    -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
     local refNames = gutil.cloneTable(mTable)
     for name, items in pairs(refNames) do
         -- If multiple differences are present, adjust names
         mTable[name] = nil
-        StorageBlocks = {
+        local StorageBlocks = {
             "iron", "gold", "lapis",
             "diamond", "coal", "redstone",
             "emerald", "copper", "tin",
             "lead", "silver",
         }
-        for index, item in ipairs(items) do
+        for _, item in ipairs(items) do
 
-            tmp = gstring.stripIgnoreCase(name, "block", true)
+            local tmp = gstring.stripIgnoreCase(name, "block", true)
+            local newName = name
             if tmp ~= "" then
-                for i, ingot in ipairs(StorageBlocks) do
+                for _, ingot in ipairs(StorageBlocks) do
                     if ingot == tmp:lower() then
                         tmp = tmp .. "Block"
                         break
@@ -445,10 +459,6 @@ local function finalPass(mTable, mod)
             tmp = gstring.stripIgnoreCase(newName, "item", true)
             if tmp ~= "" and tmp ~= "s" then
                 newName = tmp
-            end
-
-            if mod == "TConstruct" then
-                newName = newName:gsub("metal_molten", "molten")
             end
 
             if not mTable[newName] then
@@ -462,24 +472,12 @@ local function finalPass(mTable, mod)
 end
 local function normalizeNames(mTable)
     local refNames = gutil.cloneTable(mTable)
-    for name, data in pairs(refNames) do
+    for name in pairs(refNames) do
         local newName = name
         if name ~= name:upper() then
-            local n, ame = name:match("(.)(.*)")
-            newName = n:lower() .. ame
+            newName = name:gsub("^%a", string.lower)
         end
-        while true do
-            local first, second = newName:match("(.*)_(.*)")
-            if not second then
-                break
-            end
-            if tonumber(second) then
-                break
-            end
-            local s, econd = second:match("(.)(.*)")
-            second = s:upper() .. econd
-            newName = first .. second
-        end
+        newName = gstring.snakeToCamel(newName)
         local prefix, number = newName:match("(%a+[^T_])(%d+)")
         if number and not prefix:match("Tier$") then
             newName = prefix .. "_" .. number
@@ -490,7 +488,7 @@ local function normalizeNames(mTable)
 end
 local function saveMod(mTable, mod, outputPath)
     gutil.happyPrint("saving " .. mod)
-    local file = io.open(outputPath, "a")
+    local file = gutil.open(outputPath, "a")
     file:write(string.format('    %s={\n', mod))
     local nameKeys = {}
     for name in pairs(mTable) do
@@ -515,10 +513,8 @@ if not fs.isDirectory( tempOutputDir) then
     fs.makeDirectory( tempOutputDir)
 end
 local tempOutputPath = fs.concat(tempOutputDir, "/itemTable.lua")
-local file = io.open(tempOutputPath, "w")
-if not file then
-    error("Could not open file for writing: " .. tempOutputPath)
-end
+local file = gutil.open(tempOutputPath, "w")
+
 file:write("local itemTable={\n")
 file:close()
 local modNames = gutil.sortKeys(modList)
@@ -533,8 +529,11 @@ for _, mod in ipairs(modNames) do
 
     finalPass(modTable, mod)
     fixCollisions(modTable, mod, "type", fixNameFromType)
-    
+    fixCollisions(modTable, mod, "class", fixNameFromClass)
+    fixCollisions(modTable, mod, "class", fixNameFromClassPassTwo)
+    fixCollisions(modTable, mod, "type", fixNameFromType)
     fixCollisions(modTable, mod, "id", fixNameFromIndex)
+
     local collisionStr = testCollisions(modTable, mod)
     if collisionStr ~= "" then
         -- needs improvement
@@ -546,15 +545,15 @@ for _, mod in ipairs(modNames) do
         modTable[name] = items[1]
     end
 
-    tablePath = "/temp/tables/"
+
     normalizeNames(modTable)
     saveMod(modTable, mod, tempOutputPath)
         os.sleep(.001)
-    
 end
 
 
-local file = io.open(tempOutputPath, "a")
+file = gutil.open(tempOutputPath, "a")
+
 file:write("}\n\nreturn itemTable")
 file:close()
 
