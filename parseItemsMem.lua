@@ -22,13 +22,13 @@ local specialFixes = {
             "^armo[u]?r%.",
         },
         class = {
-           "iguanaman.",
+           "^.*iguanaman%.",
             "^core%.",
             "^common%.",
             "^shared%.",
             "^base%.",
-            "item[s]%.",
-            "block[s]%.",
+            "^item[s]?%.",
+            "^block[s]?%.",
         }
     },
     modAliases = {
@@ -239,16 +239,18 @@ local function stripPre(str, mod, prefixTable)
     return str
 end
 
+local function stripEach(str, patternTable)
+    for _, pattern in ipairs(patternTable) do
+        str = gstring.stripIgnoreCase(str, pattern) -- Apply each pattern
+    end
+    return str
+end
+
 -- Function to clean a string by removing all matching patterns
 local function cleanName(name, mod)
-    for _, pattern in ipairs(specialFixes.generalPat.name) do
-        name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
-    end
-
+    name = stripEach(name, specialFixes.generalPat.name)
     name = stripMod(name, mod, specialFixes.modAliases.name)
-    for _, pattern in ipairs(specialFixes.generalPat.name) do
-        name = gstring.stripIgnoreCase(name, pattern) -- Apply each pattern
-    end
+    name = stripEach(name, specialFixes.generalPat.name)
     name = stripPre(name, mod, specialFixes.modPrefixes.name)
 
     local lowername = name:lower()
@@ -273,11 +275,7 @@ local function cleanClass(class, mod)
     if specialFixes.modAliases.classPassTwo[mod] then
         class = stripMod(class, specialFixes.modAliases.classPassTwo[mod])
     end
-    for _, pattern in ipairs(specialFixes.generalPat.class) do
-        class = gstring.stripIgnoreCase(class, pattern) -- Apply each pattern
-    end
-    class = class:gsub("^item[s]?%.Item", "Item")
-    class = class:gsub("^block[s]?%.Block", "Block")
+    class = stripEach(class, specialFixes.generalPat.class)
     return class
 end
 
@@ -366,22 +364,18 @@ end
 
 local function hardcodedRenameEarly(name, class, mod, id)
     class = gstring.extractLastSegDot(class)
-    local hardClass = specialFixes.hardcoded.byClass[mod]
-    local hardName = specialFixes.hardcoded.byName[mod]
-    local hardID = specialFixes.hardcoded.byID[mod]
-    if hardClass and hardClass[class] then
-        name = hardClass[class]
+    local function getName(hardTable, field)
+        if hardTable and hardTable[field] then
+            name = hardTable[field]
+        end
     end
+    getName(specialFixes.hardcoded.byClass[mod], class)
     if name == "null" then
         local item = { class = class }
         name = fixNameFromClassCore(name, item, mod, false)
     end
-    if hardName and hardName[name] then
-        name = hardName[name]
-    end
-    if hardID and hardID[id] then
-        name = hardID[id]
-    end
+    getName(specialFixes.hardcoded.byName[mod], name)
+    getName(specialFixes.hardcoded.byID[mod], id)
     return name
 end
 
