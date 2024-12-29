@@ -1,18 +1,26 @@
-
 local fs = require("filesystem")
 local gutil = require("ghostUtils")
 local gstring = require("ghostString")
-local term = require("term")
-local serial = require("serialization")
+local puter = require("computer")
+local shell = require("shell")
+local args, ops = shell.parse(...)
+if puter.totalMemory() < 27000 then
+    error("Craft or Download more RAM")
+end
 
-local SrcCsvPath = "/item.csv"
-local TempOutputDir = "/temp/ghost"
+local VERBOSE = false
+if ops["v"] or ops["verbose"] then
+    VERBOSE = true
+end
+
+local SrcCsvPath = args[1] or "/item.csv"
+local TempOutputDir = "/temp/ghost/parseItems"
 local ModCSVDir = fs.concat(TempOutputDir, "modcsv/")
 local FinalItemTablePath = "/itemTable.lua"
-local ModCSVBufferSize = 128
+--local ModCSVBufferSize = 30
 local gpu = require("component").gpu
 
-local currentMod = nil
+local curMod = nil
 local modList = {}
 local collisionFilePath = "/itemTableCollisions.txt"
 
@@ -43,6 +51,7 @@ local parsePatterns = {
         --for mods which use a different name for their identifier, and in item names.
         name = {
             AppliedEnergistics     = {"appeng"},
+            BloodMagic             = {"AWWayofTime"},
             exnihilo               = {"crowley%.skyblock"},
             ExtraUtilities         = {"extrautils"},
             Forestry               = {"for"},
@@ -50,7 +59,8 @@ local parsePatterns = {
             HungerOverhaul         = {"pamharvestcraft"},
             IguanaTweaksTConstruct = {"tconstruct"},
             MineFactoryReloaded    = {"mfr"},
-            OpenComputers          = {"oc"},
+            OpenComputers          = { "oc" },
+            TConstruct             = {"decoration"}
         },
         --for mods which use a different name for their identifier, and in class paths.
         class = {
@@ -63,6 +73,10 @@ local parsePatterns = {
             OpenPeripheral         = {"openperipheral%.addons"},
             gendustry              = {"gendustry", "bdew"},
             ThermalExpansion       = {"thermalexpansion", "cofh"},
+            BinnieCore             = {"binnie%.core"},
+            ChickenChunks          = {"codechicken%.chunkloader"},
+            PluginsforForestry     = {"plugins"},
+            asielib                = {"asie%.lib"}
         },
 
     },
@@ -79,6 +93,9 @@ local parsePatterns = {
             ExtraTrees = {"BlockET","ItemET"},
             BigReactors = {"BR"}
         },
+    },
+    generalSubs = {
+        pressureplate = "pressurePlate",
     },
     modSubs = {
         name = {
@@ -146,11 +163,8 @@ local parsePatterns = {
 }
 local currentRenameMod = nil
 local renameWidth = gpu.getResolution()
-renameWidth = math.min((renameWidth - 12) // 3, 30)
-local renameHeader = " | " ..
-    gstring.toLength("Original Name", renameWidth, "center") .. " | " ..
-    gstring.toLength("New Name", renameWidth, "center") .. " | " ..
-    gstring.toLength("Reference", renameWidth, "center") .. " |"
+renameWidth = math.min(math.floor((renameWidth - 12) / 3), 30)
+
 
 local function printPrettyRename(oldName, newName, contextType, context)
     local white = 0xFFFFFF
@@ -165,10 +179,13 @@ local function printPrettyRename(oldName, newName, contextType, context)
         reference = gstring.toLength (contextType .. ": '" .. context .. "'", renameWidth)
     end
 
-    if currentRenameMod ~= currentMod then
+    if currentRenameMod ~= curMod then
         print("Renaming")
-        print(renameHeader)
-        currentRenameMod = currentMod
+        print(" | " ..
+        gstring.toLength("Original Name", renameWidth, "center") .. " | " ..
+        gstring.toLength("New Name", renameWidth, "center") .. " | " ..
+        gstring.toLength("Reference", renameWidth, "center") .. " |")
+        currentRenameMod = curMod
     end
     if gpu.getDepth == 1 then
         print(sep .. oldName .. sep .. newName .. sep .. reference .. " |\n")
@@ -186,7 +203,7 @@ local function printPrettyRename(oldName, newName, contextType, context)
 end
 
 local function printIfRename(name, newName, contextType, context)
-    if name ~= newName then
+    if name ~= newName and VERBOSE then
         printPrettyRename(name, newName, contextType, context)
     end
 end
@@ -207,6 +224,20 @@ local function saveBuffer(buffer, outputDir, mod)
         file:write(bufferedLine .. "\n")
     end
     file:close()
+end
+local function freeMemOverTimeMax()
+    local maxFreeMemory = 0
+    for _ = 1, 5 do
+        local currentFreeMemory = puter.freeMemory()
+        maxFreeMemory = math.max(maxFreeMemory, currentFreeMemory)
+        os.sleep(.1)
+    end
+
+    return maxFreeMemory
+end
+local ModCSVBufferSize = math.floor(freeMemOverTimeMax() / 8192)
+if VERBOSE then
+    print("Using buffer size of " .. ModCSVBufferSize)
 end
 
 local function splitByModBuffered(csvPath, outputDir, bufferSize)
@@ -231,15 +262,17 @@ local function splitByModBuffered(csvPath, outputDir, bufferSize)
                 buffers[mod] = {}
             end
             table.insert(buffers[mod], line)
-
-            -- Write to file if buffer exceeds bufferSize
             if #buffers[mod] >= bufferSize then
                 gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
                 saveBuffer(buffers[mod], outputDir, mod)
                 buffers[mod] = {} -- Clear the buffer
             end
         end
+
         lineCount = lineCount + 1
+        if lineCount % 50 == 0 then
+            os.sleep(0)
+        end
     end
     gutil.uneasyPrint("READ DONE. DUMPING REMAINING")
 
@@ -250,7 +283,9 @@ local function splitByModBuffered(csvPath, outputDir, bufferSize)
         end
     end
     csv:close()
-    print("Processed " .. lineCount .. " lines and split into mod-specific files.")
+    if VERBOSE then
+        print("Processed " .. lineCount .. " lines and split into mod-specific files.")
+    end
 end
 
 local function stripNamespace(str, namespace, fromAnywhere)
@@ -265,16 +300,15 @@ local function stripEachNamespace(str, namespaceTable, fromAnywhere)
     return str
 end
 local function stripModNamespace(str, modPatterns)
-    if modPatterns[currentMod] then
-        str = stripEachNamespace(str, modPatterns[currentMod], true)
-    else
-        str = stripNamespace(str, currentMod, true)
+    if modPatterns[curMod] then
+        str = stripEachNamespace(str, modPatterns[curMod], true)
     end
+        str = stripNamespace(str, curMod, true)
     return str
 end
 local function stripPre(str, prefixTable)
-    if prefixTable[currentMod] then
-        for _, pattern in ipairs(prefixTable[currentMod]) do
+    if prefixTable[curMod] then
+        for _, pattern in ipairs(prefixTable[curMod]) do
             str = gstring.stripIgnoreCase(str, pattern, true) -- Apply each pattern
         end
     end
@@ -293,17 +327,21 @@ local function cleanName(name)
 
     local lowername = newName:lower()
     if lowername ~= "item" and lowername ~= "cheatyitem"
-        and lowername ~= "multiitem" and lowername ~= "cheatitem" then
+        and lowername ~= "multiitem" and lowername ~= "cheatitem"
+        and lowername ~= "baseitem" then
         newName = gstring.stripIgnoreCase(newName, "Item$")
     end
 
-    if parsePatterns.modSubs.name[currentMod] then
-        for from, to in pairs(parsePatterns.modSubs.name[currentMod]) do
+    if parsePatterns.modSubs.name[curMod] then
+        for from, to in pairs(parsePatterns.modSubs.name[curMod]) do
             newName = newName:gsub(from, to)
         end
     end
 
     newName = newName:gsub("[_%./](.)", function(match) return match:upper() end)
+    for pattern, replacement in pairs(parsePatterns.generalSubs) do
+        newName = newName:gsub(pattern, replacement)
+    end
     return newName
 end
 
@@ -324,6 +362,7 @@ local function standardizeName(name)
     if number and not prefix:match("Tier$") then
         newName = prefix .. "_" .. number
     end
+    newName = newName:gsub(" ", "_"):gsub("%'", ""):gsub("%(", "_"):gsub("%)", "_"):gsub("%-", "_")
     return newName
 end
 local function finalClean(name)
@@ -391,17 +430,16 @@ end
 local function fixCollisions(mTable,  field, renameFunc)
     -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
-    local refNames = gutil.cloneTable(mTable)
-    for name, items in pairs(refNames) do
+    --local refNames = gutil.cloneTable(mTable)
+    local collisions = {}
+    for name, items in pairs(mTable) do
         if #items > 1 then -- Only consider cases with multiple items
             local base = items[1][field]
-            local hasDifference = false
-
             if field == "id" then
                 table.sort(items, function(a, b)
                     return tonumber(a.id) < tonumber(b.id)
                 end)
-                hasDifference = true
+                collisions[name] = items
             else
                 -- Check for differences in the specified field.
                 -- (this is done rather than modifying the items as I find them to
@@ -409,29 +447,30 @@ local function fixCollisions(mTable,  field, renameFunc)
                 -- especially in instances where renameFunc resolves to the original name.)
                 for _, item in ipairs(items) do
                     if item[field] ~= base then
-                        hasDifference = true
+                        collisions[name] = items
                         break
                     end
                 end
             end
-            -- If multiple differences are present, adjust names
-            if hasDifference then
-                mTable[name] = nil
-                for index, item in ipairs(items) do
-                    local newName = renameFunc(name, item, index)
-                    printIfRename(name, newName, field, item[field])
-                    -- Ensure the new name exists under the mod
-                    if not mTable[newName] then
-                        mTable[newName] = {}
-                    end
-
-                    -- Move the item to the new name
-                    table.insert(mTable[newName], item)
-                end
+        end
+    end
+    -- If multiple differences are present, adjust names
+    for name, items in pairs(collisions) do
+        mTable[name] = nil
+        for index, item in ipairs(items) do
+            local newName = renameFunc(name, item, index)
+            printIfRename(name, newName, field, item[field])
+            -- Ensure the new name exists under the mod
+            if not mTable[newName] then
+                mTable[newName] = {}
             end
+
+            -- Move the item to the new name
+            table.insert(mTable[newName], item)
         end
     end
 end
+
 
 
 
@@ -439,8 +478,8 @@ local function tryGetHardcodedName(name, class, id)
     class = gstring.extractLastSegDot(class)
     local newName = nil
     local function getName(hardTable, field)
-        if hardTable[currentMod] and hardTable[currentMod][field] then
-            newName = hardTable[currentMod][field]
+        if hardTable[curMod] and hardTable[curMod][field] then
+            newName = hardTable[curMod][field]
         end
     end
     getName(parsePatterns.hardcoded.byClass, class)
@@ -468,6 +507,7 @@ local function parseName(name, class, id)
 end
 
 local function testCollisions(mTable)
+    --probably should add to table and concat at end, but eh.
     local collisions = ""
 
     -- Iterate through all mods
@@ -475,7 +515,7 @@ local function testCollisions(mTable)
         -- Check if there is more than one entry under this name
         if #entries > 1 then
             -- Write the mod and name to the file
-            collisions = collisions .. (string.format("Mod: %s, Name: %s\n", currentMod, name))
+            collisions = collisions .. (string.format("Mod: %s, Name: %s\n", curMod, name))
             -- Write each entry's details
             for i, item in ipairs(entries) do
                 collisions = collisions .. (string.format("  Entry %d:\n", i))
@@ -493,7 +533,7 @@ end
 
 local function constructModTable()
     local mTable = {}
-    local path = fs.concat(ModCSVDir, currentMod .. ".csv")
+    local path = fs.concat(ModCSVDir, curMod .. ".csv")
     local csv = gutil.open(path, "r")
     for line in csv:lines() do
         line = line:gsub("[\13\n\r]", "")
@@ -509,7 +549,8 @@ local function constructModTable()
         table.insert(mTable[parsedName], {
             ["id"] = id,
             ["type"] = type,
-            ["class"] = parsedClass
+            ["class"] = parsedClass,
+            ["unlocalised"] = unlocalised
         })
     end
     csv:close()
@@ -518,9 +559,9 @@ local function constructModTable()
 end
 
 local function saveMod(mTable, outputPath)
-    gutil.happyPrint("saving " .. currentMod)
+    gutil.happyPrint("saving " .. curMod)
     local file = gutil.open(outputPath, "a")
-    file:write(string.format('    %s={\n', currentMod))
+    file:write(string.format('    %s={\n', curMod))
     local nameKeys = {}
     for name in pairs(mTable) do
         table.insert(nameKeys, name)
@@ -531,15 +572,18 @@ local function saveMod(mTable, outputPath)
     for _, name in ipairs(nameKeys) do
         local data = mTable[name]
         file:write(string.format(
-            '        %s={id="%s", type="%s", class="%s"},\n',
-            name, data.id, data.type, data.class
+            '        %s={id="%s", type="%s", unlocalised="%s", class="%s"},\n',
+            name, data.id, data.type, data.unlocalised, data.class
         ))
     end
     file:write("    },\n")
     file:close()
 end
 
-
+local Fucked = false
+--lazy way to clear file contents
+local colfile = gutil.open(collisionFilePath, "w")
+colfile:close()
 --------------  MAIN  --------------
 
 splitByModBuffered(SrcCsvPath, ModCSVDir, ModCSVBufferSize)
@@ -555,7 +599,7 @@ local modNames = gutil.sortKeys(modList)
 
 -- Iterate alphabetically
 for _, mod in ipairs(modNames) do
-    currentMod = mod
+    curMod = mod
     gutil.uneasyPrint("Processing " .. mod)
     local modTable = constructModTable()
     fixCollisions(modTable, "type", fixNameFromType)
@@ -566,29 +610,37 @@ for _, mod in ipairs(modNames) do
 
     local collisionStr = testCollisions(modTable)
     if collisionStr ~= "" then
-        -- needs improvement
-        gutil.angryPrint("Not all collisions fixed!, see " .. collisionFilePath)
-        gutil.strToFile(collisionFilePath, collisionStr)
+        if VERBOSE then
+            gutil.angryPrint("Not all collisions fixed for " .. curMod)
+        end
+        colfile = gutil.open(collisionFilePath, "a")
+        colfile:write(collisionStr)
+        colfile:close()
+        Fucked = true
     end
-    for name, items in pairs(modTable) do
-        -- Replace the list with a flat structure
-        modTable[name] = items[1]
-    end
+    if not Fucked then
+        for name, items in pairs(modTable) do
+            -- Replace the list with a flat structure
+            modTable[name] = items[1]
+        end
 
 
-    --normalizeNames(modTable)
-    saveMod(modTable, tempOutputPath)
-    os.sleep(.001)
+        --normalizeNames(modTable)
+        saveMod(modTable, tempOutputPath)
+        os.sleep(.001)
+    end
 end
 
+if not Fucked then
+    file = gutil.open(tempOutputPath, "a")
+    file:write("}\n\nreturn itemTable")
+    file:close()
+    fs.remove(FinalItemTablePath)
+    fs.rename(tempOutputPath, FinalItemTablePath)
+    print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
+else
+    gutil.angryPrint("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath)
+end
 
-file = gutil.open(tempOutputPath, "a")
-
-file:write("}\n\nreturn itemTable")
-file:close()
-
-fs.remove(FinalItemTablePath)
-fs.rename(tempOutputPath, FinalItemTablePath)
 fs.remove(TempOutputDir)
 
-print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
