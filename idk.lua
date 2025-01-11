@@ -127,6 +127,7 @@ idk.parsePatterns = {
         },
         byID = {
             HungerOverhaul = { [105] = "melonStem" },
+            MineFactoryReloaded = {[335] = "bucketMilk"},
             Minecraft = {
                 [8] = "waterFlowing",
                 [9] = "waterStill",
@@ -325,7 +326,7 @@ function idk.fixNameFromClassCore(oldName, item, curMod, tryPostfix)
     newName = idk.finalClean(newName)
     return newName
 end
-function idk.parseName(name, class, id, curMod,  hardcodedNameFunc)
+function idk.parseName(name, class, id, curMod, hardcodedNameFunc)
     local hardName = hardcodedNameFunc(name, id, curMod, class)
     local simpleName = idk.stripNamespacesName(name, curMod)
     local newName
