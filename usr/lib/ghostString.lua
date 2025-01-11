@@ -50,7 +50,7 @@ function gstring.toLength(str, length, center)
         return str .. (" "):rep(length - strlen)
     else
         local padding = length - strlen
-        local leftPad = (padding) // 2
+        local leftPad = math.floor((padding) / 2)
         return (" "):rep(leftPad) .. str .. (" "):rep(padding - leftPad)
     end
 end

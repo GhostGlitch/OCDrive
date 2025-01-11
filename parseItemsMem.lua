@@ -3,6 +3,7 @@ local gutil = require("ghostUtils")
 local gstring = require("ghostString")
 local puter = require("computer")
 local shell = require("shell")
+local idk = require("idk")
 local args, ops = shell.parse(...)
 if puter.totalMemory() < 27000 then
     error("Craft or Download more RAM")
@@ -14,6 +15,7 @@ if ops["v"] or ops["verbose"] then
 end
 
 local SrcCsvPath = args[1] or "/item.csv"
+local ExtraCsvPath = args[2] or "/itemAppend.csv"
 local TempOutputDir = "/temp/ghost/parseItems"
 local ModCSVDir = fs.concat(TempOutputDir, "modcsv/")
 local FinalItemTablePath = "/itemTable.lua"
@@ -24,143 +26,7 @@ local curMod = nil
 local modList = {}
 local collisionFilePath = "/itemTableCollisions.txt"
 
-local parsePatterns = {
-    modAliases = {
-        ["crowley.skyblock"] = "exnihilo",
-        AWWayofTime = "BloodMagic"
-    },
-    generalNamespaces = {
-        name = {
-            "tile[s]?",    -- Remove "tile." at the start
-            "block[s]?",   -- Remove "block." at the start
-            "item[s]?",  -- Remove "item." at the start
-            "tool[s]?",
-            "armo[u]?r",
-        },
-        class = {
-           ".*iguanaman",
-            "core",
-            "common",
-            "shared",
-            "base",
-            "item[s]?",
-            "block[s]?",
-        }
-    },
-    modNamespaces = {
-        --for mods which use a different name for their identifier, and in item names.
-        name = {
-            AppliedEnergistics     = {"appeng"},
-            BloodMagic             = {"AWWayofTime"},
-            exnihilo               = {"crowley%.skyblock"},
-            ExtraUtilities         = {"extrautils"},
-            Forestry               = {"for"},
-            ForgeMicroblock        = {"microblock"},
-            HungerOverhaul         = {"pamharvestcraft"},
-            IguanaTweaksTConstruct = {"tconstruct"},
-            MineFactoryReloaded    = {"mfr"},
-            OpenComputers          = { "oc" },
-            TConstruct             = {"decoration"}
-        },
-        --for mods which use a different name for their identifier, and in class paths.
-        class = {
-            AppliedEnergistics     = {"appeng"},
-            BloodMagic             = {"alchemicalwizardry"},
-            ExtraUtilities         = {"extrautils"},
-            ForgeMicroblock        = {"microblock"},
-            JABBA                  = {"betterbarrels"},
-            OpenComputers          = {"oc"},
-            OpenPeripheral         = {"openperipheral%.addons"},
-            gendustry              = {"gendustry", "bdew"},
-            ThermalExpansion       = {"thermalexpansion", "cofh"},
-            BinnieCore             = {"binnie%.core"},
-            ChickenChunks          = {"codechicken%.chunkloader"},
-            PluginsforForestry     = {"plugins"},
-            asielib                = {"asie%.lib"}
-        },
 
-    },
-    modPrefixes = {
-        name = {
-            HardcoreQuesting = {"hqm"},
-            ComputerCraft = {"cc"},
-            BigReactors = {"br", "blockBR"},
-            BiblioCraft = {"Biblio"},
-        },
-        classAsName = {
-            AppliedEnergistics = {"AppEng"},
-            pamharvestcraft = {"BlockPam","ItemPam"},
-            ExtraTrees = {"BlockET","ItemET"},
-            BigReactors = {"BR"}
-        },
-    },
-    generalSubs = {
-        pressureplate = "pressurePlate",
-    },
-    modSubs = {
-        name = {
-            TConstruct = {
-                ["metal.molten"] = "molten"
-            },
-            extracells = {
-                [" %- this item is just used to mime fluids!"] = ""
-            }
-        }
-    },
-    hardcoded = {
-        byName = {
-            Minecraft = {
-                ["tile.mycel"] = "mycelium",
-                ["tile.lightgem"] = "glowstone",
-                ["tile.musicBlock"] = "noteBlock",
-            },
-            BiblioCraft = {
-                ["tile.Bibliotheca"] = "Bookcase",
-            },
-        },
-        byClass = {
-            extracells = {
-                ItemSecureStoragePhysicalEncrypted = "SecureStorageEncrypted",
-                ItemSecureStoragePhysicalDecrypted = "SecureStorageDecrypted",
-            },
-            ExtraTrees = {
-                ItemMothDatabase = "mothDatabase"
-            }
-        },
-        byID = {
-            HungerOverhaul = { ["105"] = "melonStem" },
-            Minecraft = {
-                ["8"] = "waterFlowing",
-                ["9"] = "waterStill",
-                ["10"] = "lavaFlowing",
-                ["11"] = "lavaStill",
-                ["39"] = "mushroomBrown",
-                ["40"] = "mushroomRed",
-                ["43"] = "stoneSlabDouble",
-                ["61"] = "furnaceOff",
-                ["62"] = "furnaceOn",
-                ["63"] = "signStanding",
-                ["68"] = "signWall",
-                ["70"] = "pressurePlateStone",
-                ["72"] = "pressurePlateWood",
-                ["73"] = "redstoneOreOff",
-                ["74"] = "redstoneOreOn",
-                ["75"] = "redstoneTorchOff",
-                ["76"] = "redstoneTorchOn",
-                ["99"] = "mushroomBlockBrown",
-                ["100"] = "mushroomBlockRed",
-                ["105"] = "melonStem",
-                ["93"] = "repeaterOff",
-                ["94"] = "repeaterOn",
-                ["123"] = "redstoneLampOff",
-                ["124"] = "redstoneLampOn",
-                ["125"] = "woodSlabDouble",
-                ["149"] = "comparatorOff",
-                ["150"] = "comparatorOn",
-            }
-        }
-    }
-}
 local currentRenameMod = nil
 local renameWidth = gpu.getResolution()
 renameWidth = math.min(math.floor((renameWidth - 12) / 3), 30)
@@ -210,11 +76,22 @@ end
 
 local function modFromLine(line)
     local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-    mod = mod:gsub("%s", "")
-
-    mod = parsePatterns.modAliases[mod] or mod
+    if mod == "UNKNOWNMOD" or mod == "null" or mod == "nil" or mod == nil and (id <= 421 or (id>=2256 and id<=2267)) then
+        mod = "Minecraft"
+    else
+        mod = mod:gsub("%s", "")
+    end
+    mod = idk.parsePatterns.modAliases[mod] or mod
     if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
     return mod
+end
+local function csvFromTable(item)
+    local id = item.id
+    local type = item.type
+    local mod = item.mod
+    local unlocalised = item.unlocalized
+    local class = item.class or ""
+    return id .. "," .. type .. "," .. mod .. "," .. unlocalised .. "," .. class
 end
 local function saveBuffer(buffer, outputDir, mod)
     print("Saving lines for " .. mod)
@@ -240,39 +117,47 @@ if VERBOSE then
     print("Using buffer size of " .. ModCSVBufferSize)
 end
 
-local function splitByModBuffered(csvPath, outputDir, bufferSize)
+local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
+    local buffers = {} -- Buffers for mod data
+
     if fs.isDirectory(outputDir) then
         fs.remove(outputDir)
     end
     fs.makeDirectory(outputDir)
-    local csv = gutil.open(csvPath, "r")
-
-    local buffers = {} -- Buffers for mod data
     local lineCount = 0
+    local function handleCSV(path)
+        gutil.uneasyPrint("Processing CSV: " .. path)
+        local csv = gutil.open(path, "r")
 
-    -- Read the file line by line
-    for line in csv:lines() do
-        local mod = modFromLine(line)
-        if mod then
-            if not modList[mod] then
-                modList[mod] = true -- Use the table as a set
+        -- Read the file line by line
+        for line in csv:lines() do
+            local mod = modFromLine(line)
+            if mod then
+                if not modList[mod] then
+                    modList[mod] = true -- Use the table as a set
+                end
+                -- Add the line to the buffer
+                if not buffers[mod] then
+                    buffers[mod] = {}
+                end
+                table.insert(buffers[mod], line)
+                if #buffers[mod] >= bufferSize then
+                    gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
+                    saveBuffer(buffers[mod], outputDir, mod)
+                    buffers[mod] = {} -- Clear the buffer
+                end
             end
-            -- Add the line to the buffer
-            if not buffers[mod] then
-                buffers[mod] = {}
-            end
-            table.insert(buffers[mod], line)
-            if #buffers[mod] >= bufferSize then
-                gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
-                saveBuffer(buffers[mod], outputDir, mod)
-                buffers[mod] = {} -- Clear the buffer
+
+            lineCount = lineCount + 1
+            if lineCount % 50 == 0 then
+                os.sleep(0)
             end
         end
-
-        lineCount = lineCount + 1
-        if lineCount % 50 == 0 then
-            os.sleep(0)
-        end
+        csv:close()
+    end
+    handleCSV(csvPath)
+    if fs.exists(extraCsvPath) then
+        handleCSV(extraCsvPath)
     end
     gutil.uneasyPrint("READ DONE. DUMPING REMAINING")
 
@@ -282,114 +167,15 @@ local function splitByModBuffered(csvPath, outputDir, bufferSize)
             saveBuffer(buffer, outputDir, mod)
         end
     end
-    csv:close()
+
     if VERBOSE then
         print("Processed " .. lineCount .. " lines and split into mod-specific files.")
     end
 end
 
-local function stripNamespace(str, namespace, fromAnywhere)
-    namespace = namespace:lower()
-    local stripStr = (namespace .. "[:%.]")
-    return gstring.stripIgnoreCase(str, stripStr, true, fromAnywhere)
-end
-local function stripEachNamespace(str, namespaceTable, fromAnywhere)
-    for _, namespace in ipairs(namespaceTable) do
-        str = stripNamespace(str, namespace, fromAnywhere)
-    end
-    return str
-end
-local function stripModNamespace(str, modPatterns)
-    if modPatterns[curMod] then
-        str = stripEachNamespace(str, modPatterns[curMod], true)
-    end
-        str = stripNamespace(str, curMod, true)
-    return str
-end
-local function stripPre(str, prefixTable)
-    if prefixTable[curMod] then
-        for _, pattern in ipairs(prefixTable[curMod]) do
-            str = gstring.stripIgnoreCase(str, pattern, true) -- Apply each pattern
-        end
-    end
-    return str
-end
 
 
-local function stripNamespacesName(name)
-    local newName = stripEachNamespace(name, parsePatterns.generalNamespaces.name)
-    newName = stripModNamespace(newName, parsePatterns.modNamespaces.name)
-    return stripEachNamespace(newName, parsePatterns.generalNamespaces.name)
-end
 
-local function cleanName(name)
-    local newName = stripPre(name, parsePatterns.modPrefixes.name)
-
-    local lowername = newName:lower()
-    if lowername ~= "item" and lowername ~= "cheatyitem"
-        and lowername ~= "multiitem" and lowername ~= "cheatitem"
-        and lowername ~= "baseitem" then
-        newName = gstring.stripIgnoreCase(newName, "Item$")
-    end
-
-    if parsePatterns.modSubs.name[curMod] then
-        for from, to in pairs(parsePatterns.modSubs.name[curMod]) do
-            newName = newName:gsub(from, to)
-        end
-    end
-
-    newName = newName:gsub("[_%./](.)", function(match) return match:upper() end)
-    for pattern, replacement in pairs(parsePatterns.generalSubs) do
-        newName = newName:gsub(pattern, replacement)
-    end
-    return newName
-end
-
-local function cleanClass(class)
-    class = class:gsub("%s", "")
-    class = stripModNamespace(class, parsePatterns.modNamespaces.class)
-
-
-    class = stripEachNamespace(class, parsePatterns.generalNamespaces.class)
-    return class
-end
-local function standardizeName(name)
-    local newName = name
-    if newName ~= newName:upper() then
-        newName = newName:gsub("^%a", string.lower)
-    end
-    local prefix, number = newName:match("(%a+[^T_%d*])(%d+)")
-    if number and not prefix:match("Tier$") then
-        newName = prefix .. "_" .. number
-    end
-    newName = newName:gsub(" ", "_"):gsub("%'", ""):gsub("%(", "_"):gsub("%)", "_"):gsub("%-", "_")
-    return newName
-end
-local function finalClean(name)
-    local StorageBlocks = {
-        "iron", "gold", "lapis",
-        "diamond", "coal", "redstone",
-        "emerald", "copper", "tin",
-        "lead", "silver",
-    }
-    local tmp = gstring.stripIgnoreCase(name, "block", true)
-    local newName = name
-    if tmp ~= "" then
-        for _, ingot in ipairs(StorageBlocks) do
-            if ingot == tmp:lower() then
-                tmp = tmp .. "Block"
-                break
-            end
-        end
-        newName = tmp
-    end
-    tmp = gstring.stripIgnoreCase(newName, "item", true)
-    if tmp ~= "" and tmp ~= "s" then
-        newName = tmp
-    end
-    newName = standardizeName(newName)
-    return newName
-end
 
 local function fixNameFromType(oldName, item, _)
     if item.type == "Block" then
@@ -398,29 +184,12 @@ local function fixNameFromType(oldName, item, _)
     return oldName
 end
 
-local function fixNameFromClassCore(oldName, item, tryPostfix)
-    local classFinal = gstring.extractLastSegDot(item.class)
-    local newName = classFinal
-    local prefix, number = oldName:match("(%a+)[_%.]?(%d+)")
-    oldName = prefix or oldName
-    if tryPostfix then
-        local classPostfix = gstring.stripIgnoreCase(classFinal, oldName, true, true)
-        if classPostfix ~= classFinal then
-            newName = oldName .. classPostfix
-        end
-    end
-    newName = stripPre(newName, parsePatterns.modPrefixes.classAsName)
-    if number then
-        newName = newName .. "_" .. number
-    end
-    newName = finalClean(newName)
-    return newName
-end
+
 local function fixNameFromClass(oldName, item)
-    return fixNameFromClassCore(oldName, item, true)
+    return idk.fixNameFromClassCore(oldName, item, curMod, true)
 end
 local function fixNameFromClassPassTwo(oldName, item)
-    return fixNameFromClassCore(oldName, item, false)
+    return idk.fixNameFromClassCore(oldName, item, curMod, false)
 end
 
 local function fixNameFromIndex(oldName, _, index)
@@ -474,37 +243,10 @@ end
 
 
 
-local function tryGetHardcodedName(name, class, id)
-    class = gstring.extractLastSegDot(class)
-    local newName = nil
-    local function getName(hardTable, field)
-        if hardTable[curMod] and hardTable[curMod][field] then
-            newName = hardTable[curMod][field]
-        end
-    end
-    getName(parsePatterns.hardcoded.byClass, class)
-    getName(parsePatterns.hardcoded.byID, id)
-    getName(parsePatterns.hardcoded.byName, name)
-    return newName
-end
 
 
-local function parseName(name, class, id)
-    local hardName = tryGetHardcodedName(name, class, id)
-    local simpleName = stripNamespacesName(name)
-    local newName
-    if hardName then
-        newName = standardizeName(hardName)
-    elseif simpleName == "null" then
-        local item = { class = class }
-        newName = fixNameFromClassCore(simpleName, item, false)
-    else
-        newName = cleanName(simpleName)
-        newName = finalClean(newName)
-    end
-    printIfRename(simpleName, newName)
-    return newName
-end
+
+
 
 local function testCollisions(mTable)
     --probably should add to table and concat at end, but eh.
@@ -538,8 +280,8 @@ local function constructModTable()
     for line in csv:lines() do
         line = line:gsub("[\13\n\r]", "")
         local id, type, _, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-        local parsedClass = cleanClass(class)
-        local parsedName = parseName(unlocalised, parsedClass, id)
+        local parsedClass = idk.cleanClass(class, curMod)
+        local parsedName = idk.parseName(unlocalised, parsedClass, id, curMod, idk.tryGetHardcodedName)
 
         if not mTable[parsedName] then
             mTable[parsedName] = {}
@@ -586,7 +328,7 @@ local colfile = gutil.open(collisionFilePath, "w")
 colfile:close()
 --------------  MAIN  --------------
 
-splitByModBuffered(SrcCsvPath, ModCSVDir, ModCSVBufferSize)
+splitByModBuffered(SrcCsvPath, ExtraCsvPath, ModCSVDir, ModCSVBufferSize)
 if not fs.isDirectory( TempOutputDir) then
     fs.makeDirectory( TempOutputDir)
 end
