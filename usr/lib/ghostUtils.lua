@@ -7,7 +7,13 @@ local comp = require("component")
 local term = require("term")
 local gutil = {}
 
-gutil.version = 1.4
+gutil.version = 1.5
+gutil.vibes = {
+    angry = 0xFF0000,
+    happy = 0x00FF00,
+    uneasy = 0xFFFF00
+}
+
 function gutil.parseCSV(s)
     local result = {}
     local row = {}
@@ -116,9 +122,16 @@ function gutil.mergeTables(table1, table2)
     return merged
 end
 
-function gutil.strToFile(filePath, str)
-    local file, err = fs.open(filePath, "w")
-    if err then error("Error: unable to open file " .. filePath .. " Reason: " .. err) end
+function gutil.open(path, mode)
+  local file, err = io.open(path, mode)
+  if err or not file then
+      error("Error: unable to open file " .. path .. " Reason: " .. err)
+  end
+  return file
+end
+
+function gutil.strToFile(path, str)
+    local file = gutil.open(path, "w")
     file:write(str)
     file:close()
 end
@@ -145,22 +158,47 @@ function gutil.readFile(path)
     return content
 end
 
-function gutil.colorPrint(message, color)
+function gutil.colorPrint(color, ...)
     local previous = comp.gpu.setForeground(color)
-    print(message)
+    print(...)
     comp.gpu.setForeground(previous)
 end
 
-function gutil.angryPrint(message)
-    gutil.colorPrint(message, 0xFF0000)
+function gutil.angryPrint(...)
+    gutil.colorPrint(gutil.vibes.angry, ...)
 end
 
-function gutil.happyPrint(message)
-    gutil.colorPrint(message, 0x00FF00)
+function gutil.happyPrint(...)
+    gutil.colorPrint(gutil.vibes.happy, ...)
 end
 
-function gutil.uneasyPrint(message)
-    gutil.colorPrint(message, 0xFFFF00)
+function gutil.uneasyPrint(...)
+    gutil.colorPrint(gutil.vibes.uneasy, ...)
+end
+
+
+function gutil.printIf(bool, ...)
+  if bool then
+    print(...)
+  end
+end
+
+function gutil.colorPrintIf(bool, color, ...)
+    if bool then
+        gutil.colorPrint(color, ...)
+    end
+end
+
+function gutil.angryPrintIf(bool, ...)
+    gutil.colorPrintIf(bool, gutil.vibes.angry, ...)
+end
+
+function gutil.happyPrintIf(bool, ...)
+    gutil.colorPrintIf(bool, gutil.vibes.happy, ...)
+end
+
+function gutil.uneasyPrintIf(bool, ...)
+    gutil.colorPrintIf(bool, gutil.vibes.uneasy, ...)
 end
 
 function gutil.isNative()
@@ -168,7 +206,6 @@ function gutil.isNative()
 end
 
 function gutil.checkGVer(lib, minVer, caller, libname)
-    print(lib)
     if lib.version == nil or lib.version < minVer then
         gutil.angryPrint("Error: " .. caller .. " requires at least version " .. minVer .. " of " .. libname)
         return false
@@ -176,14 +213,6 @@ function gutil.checkGVer(lib, minVer, caller, libname)
     return true
 end
 
-function gutil.open(path, mode)
-    path = path:gsub("|", "_")
-    local file, err = io.open(path, mode)
-    if not file then
-        error("Error: unable to open file " .. path .. " Reason: " .. err)
-    end
-    return file
-end
 
 function gutil.writeColor(str, color, wrap)
   local oldColor = comp.gpu.setForeground(color)
