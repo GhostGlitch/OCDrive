@@ -1,15 +1,33 @@
-FUCK
+# OS files
 init.lua
-temp
-collision_log2.txt
-
-home/*
 bin/*
 boot/*
-etc/motd
-etc/rc.d/example.lua
-etc/screens/*
+etc/*
 lib/*
 usr/man/*
 usr/misc/greetings.txt
+
+#OS files from older OC ver
+.osprop
+
+# OS files from newer OC ver
+home/*
+
+# Computer specific config files
+compList.txt
+etc/screens/*
+
+# Whitelist from OS Dirs
 !bin/librel.lua
+
+# Random files created by me. mostly temp testing files
+FUCK
+itemTableCollisions.txt
+output_file.txt
+output_file2.txt
+test2.lua
+test3.lua
+test4.lua
+tst.csv
+usr/redtst.lua
+
