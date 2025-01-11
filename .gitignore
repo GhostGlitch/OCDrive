@@ -3,12 +3,13 @@ init.lua
 temp
 collision_log2.txt
 
+home/*
 bin/*
 boot/*
 etc/motd
 etc/rc.d/example.lua
+etc/screens/*
 lib/*
 usr/man/*
 usr/misc/greetings.txt
-
 !bin/librel.lua
