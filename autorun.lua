@@ -1,22 +1,35 @@
 ---@diagnostic disable: need-check-nil, undefined-field
+--TODO: Test Headless mode
 local MIN_GUTIL_VER = 1.3
 local MIN_GCOMP_VER = 1.0
-local ROLE = "test"
+local ROLE = "NOROLE"
 local SELF = "autorun.lua"
 
-
+local term = require("term")
 local comp = require("component")
 local shell = require("shell")
-
-local RoleScript = shell.resolve(ROLE, "lua") or ("/" .. ROLE .. ".lua")
-if not comp.isAvailable("gpu") or not comp.isAvailable("screen") then
-    os.execute(RoleScript)
-    return
+local fs = require("filesystem")
+local gutil = require("ghostUtils")
+local function swithToRole(shouldPrint)
+    if ROLE == "NOROLE" then
+        gutil.printIf(shouldPrint, "Initialization complete.")
+    else
+        local RoleScript = shell.resolve(ROLE, "lua") or ("/" .. ROLE .. ".lua")
+        if not fs.exists(RoleScript) then
+            gutil.angryPrintIf(shouldPrint,
+                "Error: Role \"" .. ROLE .. ".lua\" not found. What was I supposed to be doing?")
+            os.exit()
+        end
+        gutil.printIf(shouldPrint, "Initialization complete. Transitioning to " .. ROLE)
+        os.execute(RoleScript)
+    end
+    os.exit()
 end
 
-local fs = require("filesystem")
-local term = require("term")
-local gutil = require("ghostUtils")
+if not term.isAvailable() then
+    swithToRole(false)
+end
+
 local gcomp = require("ghostComp")
 
 if gutil.version == nil or gutil.version < MIN_GUTIL_VER then
@@ -108,7 +121,7 @@ local function fixScrCfg()
 
     gpu.setForeground(0xFFFF00)
     print("Trying from backup config.")
-    
+
     if setResFromCfg(scrcfgBakPath) then
         print("Backup was good, restoring as config file")
         fs.copy(scrcfgBakPath, scrcfgPath)
@@ -139,10 +152,4 @@ else
 end
 --os.sleep(1)
 
-if not fs.exists(RoleScript) then
-    angryPrint("Error: Role \"" .. ROLE .. ".lua\" not found. What was I supposed to be doing?")
-    return
-end
-
-print("Initialization complete. Transitioning to " .. ROLE)
-os.execute(RoleScript)
+swithToRole(true)
