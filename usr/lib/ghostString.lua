@@ -31,4 +31,27 @@ function gstring.stripIgnoreCase(str, pattern, fromStart, stripPre)
     return gstring.cutoutString(str, firstIndex, lastIndex)
 end
 
+function gstring.snakeToCamel(str)
+    return str:gsub("_([%a])", function(match) return match:upper() end)
+end
+function gstring.shorten(str, len)
+    if #str <= len then return str end
+    local partLen = (len - 3) / 2
+    return str:sub(1, math.ceil(partLen)) .. "..." .. str:sub(-math.floor(partLen))
+end
+
+function gstring.toLength(str, length, center)
+    local strlen = #str
+    length = math.floor(length)
+    if strlen > length then
+        return gstring.shorten(str, length)
+    end
+    if not (center == true or center == "center") then
+        return str .. (" "):rep(length - strlen)
+    else
+        local padding = length - strlen
+        local leftPad = (padding) // 2
+        return (" "):rep(leftPad) .. str .. (" "):rep(padding - leftPad)
+    end
+end
 return gstring

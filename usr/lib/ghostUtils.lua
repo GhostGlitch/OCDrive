@@ -4,9 +4,10 @@ local ev = require("event")
 local ser = require("serialization")
 local fs = require("filesystem")
 local comp = require("component")
+local term = require("term")
 local gutil = {}
 
-gutil.version = 1.3
+gutil.version = 1.4
 function gutil.parseCSV(s)
     local result = {}
     local row = {}
@@ -116,7 +117,8 @@ function gutil.mergeTables(table1, table2)
 end
 
 function gutil.strToFile(filePath, str)
-    local file = fs.open(filePath, "w")
+    local file, err = fs.open(filePath, "w")
+    if err then error("Error: unable to open file " .. filePath .. " Reason: " .. err) end
     file:write(str)
     file:close()
 end
@@ -172,6 +174,21 @@ function gutil.checkGVer(lib, minVer, caller, libname)
         return false
     end
     return true
+end
+
+function gutil.open(path, mode)
+    path = path:gsub("|", "_")
+    local file, err = io.open(path, mode)
+    if not file then
+        error("Error: unable to open file " .. path .. " Reason: " .. err)
+    end
+    return file
+end
+
+function gutil.writeColor(str, color, wrap)
+  local oldColor = comp.gpu.setForeground(color)
+  term.write(str, wrap)
+  return oldColor
 end
 
 return gutil
