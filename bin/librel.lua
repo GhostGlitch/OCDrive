@@ -21,5 +21,5 @@ end
 
 for _, key in ipairs(keysToReload) do
     loaded[key] = nil
-    pcall(require, key)
+    local _, _, _ = pcall(require, key)
 end
