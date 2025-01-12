@@ -299,13 +299,19 @@ local function constructModTable()
     fs.remove(path)
     return mTable
 end
-
-local function saveMod(mTable, outputPath)
+local function startTableFile(tableName, fileName)
+    local tempOutputPath = fs.concat(TempOutputDir, fileName)
+    local file = gutil.open(tempOutputPath, "w")
+    file:write("local " .. tableName .. "={\n")
+    file:close()
+    return tempOutputPath
+end
+local function saveMod(mTable, itemTablePath)
     gutil.happyPrint("saving " .. curMod)
-    local file = gutil.open(outputPath, "a")
+    local file = gutil.open(itemTablePath, "a")
     file:write(string.format('    %s={\n', curMod))
     local nameKeys = {}
-    for name in pairs(mTable) do
+    for name, data in pairs(mTable) do
         table.insert(nameKeys, name)
     end
     table.sort(nameKeys, function(a, b)
@@ -313,6 +319,7 @@ local function saveMod(mTable, outputPath)
     end)
     for _, name in ipairs(nameKeys) do
         local data = mTable[name]
+        local id = tonumber(data.id)
         file:write(string.format(
             '        %s={id="%s", type="%s", unlocalised="%s", class="%s"},\n',
             name, data.id, data.type, data.unlocalised, data.class
@@ -321,22 +328,27 @@ local function saveMod(mTable, outputPath)
     file:write("    },\n")
     file:close()
 end
+local function finishTableFile(tableName, path, finalPath)
+    local file = gutil.open(path, "a")
+    file:write("}\n\nreturn " .. tableName)
+    file:close()
+    fs.remove(finalPath)
+    fs.rename(path, finalPath)
+    gutil.happyPrint(tableName .. " saved to " .. finalPath)
+end
 
 local Fucked = false
---lazy way to clear file contents
-local colfile = gutil.open(collisionFilePath, "w")
-colfile:close()
+fs.remove(collisionFilePath)
+
 --------------  MAIN  --------------
 
 splitByModBuffered(SrcCsvPath, ExtraCsvPath, ModCSVDir, ModCSVBufferSize)
-if not fs.isDirectory( TempOutputDir) then
-    fs.makeDirectory( TempOutputDir)
+if not fs.isDirectory(TempOutputDir) then
+    fs.makeDirectory(TempOutputDir)
 end
-local tempOutputPath = fs.concat(TempOutputDir, "/itemTable.lua")
-local file = gutil.open(tempOutputPath, "w")
 
-file:write("local itemTable={\n")
-file:close()
+
+local tempITPath = startTableFile("itemTable", "ItemTable.lua")
 local modNames = gutil.sortKeys(modList)
 
 -- Iterate alphabetically
@@ -355,7 +367,7 @@ for _, mod in ipairs(modNames) do
         if VERBOSE then
             gutil.angryPrint("Not all collisions fixed for " .. curMod)
         end
-        colfile = gutil.open(collisionFilePath, "a")
+        local colfile = gutil.open(collisionFilePath, "a")
         colfile:write(collisionStr)
         colfile:close()
         Fucked = true
@@ -366,20 +378,16 @@ for _, mod in ipairs(modNames) do
             modTable[name] = items[1]
         end
 
-
         --normalizeNames(modTable)
-        saveMod(modTable, tempOutputPath)
-        os.sleep(.001)
+        saveMod(modTable, tempITPath)
+        os.sleep(0)
     end
 end
 
+
 if not Fucked then
-    file = gutil.open(tempOutputPath, "a")
-    file:write("}\n\nreturn itemTable")
-    file:close()
-    fs.remove(FinalItemTablePath)
-    fs.rename(tempOutputPath, FinalItemTablePath)
-    print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
+    finishTableFile("itemTable", tempITPath, FinalItemTablePath)
+    --print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
 else
     gutil.angryPrint("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath)
 end

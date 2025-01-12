@@ -591,10 +591,11 @@ local function stripBadEntries(subTable)
                 if not hasOthers and items[0] and items[0].subname == "damage_0" then
                     --print(serial.serialize(item))
                     --gdebug.printIf(name == "lavaTank_1", "removing", items[0], items[0].damage)
-                        table.insert(removals, { mod = mod, name = name })
+                    table.insert(removals, { mod = mod, name = name })
                 end
             end
         end
+        coroutine.yield("cleaned ".. mod)
     end
     for _, keys in ipairs(removals) do
         subTable[keys.mod][keys.name] = nil
@@ -606,133 +607,126 @@ local function stripBadEntries(subTable)
     end
     return subTable
 end
-
-local newTable = {}
-for i = 1, availableTable["n"] do
-    local item = availableTable[i]
-    local ignore = false
-    for _, pattern in ipairs(subnameParsePats.toolPatterns) do
-        if item.name:match(pattern) then
-            ignore = true
-            break
+local function makeNewTable(iTable)
+    local newTable = {}
+    for i = 1, availableTable["n"] do
+        if i%64 == 0 then
+            coroutine.yield("Make "..i)
         end
-    end
-    if not ignore then
-        local alreadyExists = false
-        local id = item.id
-        local damage = item.damage
-        local oldData = idTable[id]
-        local unlocalSub = item.name
-        local subname
-        local niceName
-        local mod
-        if oldData then
-            mod = oldData.mod
-            niceName = oldData.name
-            if itemTable[mod] and itemTable[mod][niceName] then
-                for _, subItem in pairs(itemTable[mod][niceName]) do
-                    if tonumber(subItem.damage) == tonumber(damage) then
-                        if niceName == "lavaTank_1" then
-                            --print(subItem)
-                            --print(serial.serialize(subItem))
-                        --print("Already exists", mod, niceName, damage)
-                        os.sleep(1)
+        local item = availableTable[i]
+        local ignore = false
+        for _, pattern in ipairs(subnameParsePats.toolPatterns) do
+            if item.name:match(pattern) then
+                ignore = true
+                break
+            end
+        end
+        if not ignore then
+            local alreadyExists = false
+            local id = item.id
+            local damage = item.damage
+            local oldData = idTable[id]
+            local unlocalSub = item.name
+            local subname
+            local niceName
+            local mod
+            if oldData then
+                mod = oldData.mod
+                niceName = oldData.name
+                if iTable[mod] and iTable[mod][niceName] then
+                    for _, subItem in pairs(iTable[mod][niceName]) do
+                        if tonumber(subItem.damage) == tonumber(damage) then
+                            alreadyExists = true
+                            break
                         end
-                        alreadyExists = true
-                        break
+                    end
+                end
+            else
+                if id <= 421 or (id >= 2256 and id <= 2267) then
+                    mod = "Minecraft"
+                else
+                    mod = "UNKNOWNMOD"
+                end
+                niceName = "UNKNOWNITEM"
+            end
+            subname = parseSubName(unlocalSub, mod, niceName, damage)
+            if subname and not alreadyExists then
+                if not newTable[mod] then
+                    newTable[mod] = {}
+                end
+                if not newTable[mod][niceName] then
+                    newTable[mod][niceName] = {}
+                end
+                if not newTable[mod][niceName][damage] then
+                    newTable[mod][niceName][damage] = {
+                        ["subname"] = subname,
+                        ["damage"] = item.damage,
+                        ["unlocalised"] = unlocalSub
+                    }
+                    if mod == "UNKNOWNMOD" then
+                        newTable[mod][niceName][damage][id] = item.id
                     end
                 end
             end
-        else
-            if id <= 421 or (id>=2256 and id<=2267) then
-                mod = "Minecraft"
-            else
-                mod = "UNKNOWNMOD"
-            end
-            niceName = "UNKNOWNITEM"
-        end
-        subname = parseSubName(unlocalSub, mod, niceName, damage)
-        if subname and not alreadyExists then
-            if not newTable[mod] then
-                newTable[mod] = {}
-            end
-            if not newTable[mod][niceName] then
-                newTable[mod][niceName] = {}
-            end
-            if not newTable[mod][niceName][damage] then
-                newTable[mod][niceName][damage] = {
-                    ["subname"] = subname,
-                    ["damage"] = item.damage,
-                    ["unlocalised"] = unlocalSub
-                }
-                if mod == "UNKNOWNMOD" then
-                    newTable[mod][niceName][damage][id] = item.id
-                end
-            end
         end
     end
+    return newTable
 end
 
-
-
-
-
-
-newTable = stripBadEntries(newTable)
---file:write(serial.serialize(availableTable, 10000))
---file:write("\n\n\n")
---file:write(serial.serialize(newTable, 10000))
-
-
-for mod, names in pairs(newTable) do
-    for name, subitems in pairs(names) do
-        for _, subItem in pairs(subitems) do
-            local topItem = itemTable[mod][name]
-            local subname = subItem.subname
-            if not itemTable[mod][name][subname] then
-                itemTable[mod][name][subname] = {
-                    ["id"] = topItem.id,
-                    ["type"] = topItem.type,
-                    ["class"] = topItem.class,
-                    ["unlocalised"] = subItem.unlocalised,
-                    ["damage"] = subItem.damage,
-                }
-            else
-                local alreadyItem = itemTable[mod][name][subname]
-                if alreadyItem ~= "AMBIGUOUSNAME" then
-                    local alreadyName = subname .. "_" .. alreadyItem.damage
-                    itemTable[mod][name][alreadyName] = {
-                        ["id"] = alreadyItem.id,
-                        ["type"] = alreadyItem.type,
-                        ["class"] = alreadyItem.class,
-                        ["unlocalised"] = alreadyItem.unlocalised,
-                        ["damage"] = alreadyItem.damage,
-                    }
-                    itemTable[mod][name][subname] = "AMBIGUOUSNAME"
-                end
-                subname = subname .. "_".. subItem.damage
-                if not itemTable[mod][name][subname] then
-                    itemTable[mod][name][subname] = {
+local function updateIT(newTable, iTable)
+    for mod, names in pairs(newTable) do
+        for name, subitems in pairs(names) do
+            for _, subItem in pairs(subitems) do
+                local topItem = iTable[mod][name]
+                local subname = subItem.subname
+                if not iTable[mod][name][subname] then
+                    iTable[mod][name][subname] = {
                         ["id"] = topItem.id,
                         ["type"] = topItem.type,
                         ["class"] = topItem.class,
                         ["unlocalised"] = subItem.unlocalised,
                         ["damage"] = subItem.damage,
                     }
+                else
+                    local alreadyItem = iTable[mod][name][subname]
+                    if alreadyItem ~= "AMBIGUOUSNAME" then
+                        local alreadyName = subname .. "_" .. alreadyItem.damage
+                        iTable[mod][name][alreadyName] = {
+                            ["id"] = alreadyItem.id,
+                            ["type"] = alreadyItem.type,
+                            ["class"] = alreadyItem.class,
+                            ["unlocalised"] = alreadyItem.unlocalised,
+                            ["damage"] = alreadyItem.damage,
+                        }
+                        iTable[mod][name][subname] = "AMBIGUOUSNAME"
+                    end
+                    subname = subname .. "_" .. subItem.damage
+                    if not iTable[mod][name][subname] then
+                        iTable[mod][name][subname] = {
+                            ["id"] = topItem.id,
+                            ["type"] = topItem.type,
+                            ["class"] = topItem.class,
+                            ["unlocalised"] = subItem.unlocalised,
+                            ["damage"] = subItem.damage,
+                        }
+                    end
+                    --gdebug.printIf(name == "lavaTank_1", subname, subItem.damage)
                 end
-                --gdebug.printIf(name == "lavaTank_1", subname, subItem.damage)
             end
         end
+        coroutine.yield("Subitems added to " .. mod)
     end
+return iTable
 end
 
 local function saveItemTable(iTable, outputPath)
+
     --gutil.happyPrint("Saving entire item table")
     
     -- Open the file in write mode to overwrite existing content
-    local file = gutil.open(outputPath, "w")
+    local file = io.open(outputPath, "w")
+    if not file then coroutine.yield("FUCK") end
     file:write("local itemTable = {\n") -- Start the Lua table
-
     -- Process each mod
     for mod, mTable in pairs(iTable) do
         --gutil.happyPrint("Saving mod: " .. mod)
@@ -761,7 +755,7 @@ local function saveItemTable(iTable, outputPath)
             for key, value in pairs(data) do
                 if value == "AMBIGUOUSNAME" then
                     table.insert(AmbiguousSubnames, key)
-                elseif key ~= "id" and key ~= "type" and key ~= "class" and key ~="unlocalised" then
+                elseif key ~= "id" and key ~= "type" and key ~= "class" and key ~= "unlocalised" then
                     table.insert(sortedSubnames, key)
                 end
             end
@@ -778,21 +772,39 @@ local function saveItemTable(iTable, outputPath)
                     ))
                 end
             end
-            for _,subname in ipairs(AmbiguousSubnames) do
+            for _, subname in ipairs(AmbiguousSubnames) do
                 local subdata = data[subname]
                 file:write(string.format(
                     ',\n                %s=%q',
                     subname, subdata
                 ))
             end
-            file:write("},\n") -- Close item definition
+            file:write("},\n")        -- Close item definition
         end
-        file:write("    },\n") -- Close mod table
+        file:write("    },\n")        -- Close mod table
     end
     file:write("}\nreturn itemTable") -- Close the Lua table
     file:close()
-    gutil.happyPrint("Item table saved to " .. outputPath)
+
+    coroutine.yield("Item table saved to " .. outputPath)
 end
---local file = gutil.open("Available.txt", "w")
---availableFile:write(serial.serialize(availableTable, 10000))
-saveItemTable(itemTable, "./ItTest.lua")
+
+function main()
+    --print("start")
+    local newTable = makeNewTable(itemTable)
+    coroutine.yield("tableMade")
+    newTable = stripBadEntries(newTable)
+    coroutine.yield("bad stripped")
+    iTable = updateIT(newTable, itemTable)
+    coroutine.yield("ITable updated")
+    saveItemTable(iTable, "./ItTest.lua")
+    coroutine.yield("DONE")
+end
+coco = coroutine.create(main)
+function dod()
+    while true do
+        print(coroutine.resume(coco))
+    os.sleep(.01)
+    end
+end
+return main

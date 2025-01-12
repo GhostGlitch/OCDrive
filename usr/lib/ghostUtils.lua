@@ -5,14 +5,16 @@ local ser = require("serialization")
 local fs = require("filesystem")
 local comp = require("component")
 local term = require("term")
+local unicode = require("unicode")
 local gutil = {}
 
-gutil.version = 1.5
+gutil.version = 1.6
 gutil.vibes = {
     angry = 0xFF0000,
     happy = 0x00FF00,
     uneasy = 0xFFFF00
 }
+gutil.gpuX, gutil.gpuY = comp.gpu.getResolution()
 
 function gutil.parseCSV(s)
     local result = {}
@@ -212,7 +214,73 @@ function gutil.checkGVer(lib, minVer, caller, libname)
     end
     return true
 end
+function gutil.replaceLineAtPos(x, y, str)
+  term.setCursor(x, y)
+  term.clearLine()
+  comp.gpu.set(x,y,str)
+end
+function gutil.printBox(x, y, ...)
+  local oldBlink = term.getCursorBlink()
+  term.setCursorBlink(false)
+  local oldCurX, oldCurY = term.getCursor()
 
+
+  --term.setCursor(x, y)
+  local width = 0
+  local args = { ... }
+  local height = #args
+  local lines = {}
+  for i = 1, #args do
+      local arg = args[i]
+      if arg == nil then arg = "nil" end
+      width = math.max(#arg + 1, width)
+      table.insert(lines, arg)
+  end
+  local bordersDef = { { unicode.char(0x2552), unicode.char(0x2550), unicode.char(0x2555) },
+      { unicode.char(0x2502), nil,                  unicode.char(0x2502) },
+      { unicode.char(0x2514), unicode.char(0x2500), unicode.char(0x2518) } }
+  local borders = bordersDef
+    if x < 2 then
+        borders[1][1] = ""
+        borders[2][1] = ""
+        borders[3][1] = ""
+        x = x + 1
+    end
+    x=x-1
+  if y > 1 then
+      local lowestBottom = 1
+      if y + height <= gutil.gpuY then
+          for i = y + height, 1, -1 do
+              char = comp.gpu.get(x + 2, i)
+              if char == borders[3][2] then
+                  lowestBottom = i
+                  local dif = y + height - lowestBottom
+                  local tx, ty = term.getCursor()
+                    comp.gpu.copy(1, lowestBottom + 1, 200, dif, 0, -height - 2)
+                  if ty >= lowestBottom +1 and ty <= lowestBottom+1+dif then
+                    comp.gpu.set(tx,ty-height-2, " ")
+                  end
+                  break
+              end
+          end
+      end
+      gutil.replaceLineAtPos(x, y - 1, borders[1][1].. string.rep(borders[1][2], width).. borders[1][3])
+  end
+  local ind = 0
+  for i, line in ipairs(lines) do
+
+        gutil.replaceLineAtPos(x, y + ind, borders[2][1] .. line .. (" "):rep(width - #line) .. borders[2][3])
+        ind = ind + 1
+        if y  + ind > gutil.gpuY then
+          break
+      end
+  end
+  if y+ind<=gutil.gpuY then
+  gutil.replaceLineAtPos(x, y + ind, borders[3][1] .. string.rep(borders[3][2], width) .. borders[3][3])
+  end
+  term.setCursor(oldCurX, oldCurY)
+  term.setCursorBlink(oldBlink)
+end
 
 function gutil.writeColor(str, color, wrap)
   local oldColor = comp.gpu.setForeground(color)

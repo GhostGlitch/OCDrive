@@ -1,3 +1,4 @@
+local gutil = require("ghostUtils")
 local gmath = {}
 
 gmath.version = 1.0
@@ -20,7 +21,11 @@ function gmath.percToMCHex(percent)
 end
 
 function gmath.checkForBits(a, b)
-    return bit32.band(a, b) ~= 0
+    if gutil.isNative() then
+        return bit32.band(a, b) ~= 0
+    else
+        return a & b ~= 0
+    end
 end
 
 

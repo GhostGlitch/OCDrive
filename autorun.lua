@@ -10,6 +10,12 @@ local comp = require("component")
 local shell = require("shell")
 local fs = require("filesystem")
 local gutil = require("ghostUtils")
+local event = require("event")
+--required for certain setups to respect the command.
+local function toRoot()
+    shell.setWorkingDirectory("/")
+end
+event.timer(0,toRoot,1)
 local function swithToRole(shouldPrint)
     if ROLE == "NOROLE" then
         gutil.printIf(shouldPrint, "Initialization complete.")
@@ -151,5 +157,6 @@ else
     fs.copy(scrcfgPath, scrcfgBakPath)
 end
 --os.sleep(1)
+
 
 swithToRole(true)
