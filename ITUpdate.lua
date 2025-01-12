@@ -3,15 +3,34 @@ local gdebug = require("ghostDebug").getDebug(true, false)
 local comp = require("component")
 local serial = require("serialization")
 local fs = require("filesystem")
-local itemTable = require("FUCK")
+local itemTable = require("itemTable")
 local idTable = require("idToNameMod")
 local gstring = require("ghostString")
 local idk = require("idk")
 local gutil = require("ghostUtils")
 local gmath = require("ghostMath")
-local cont = comp.appeng_blocks_controller
-local availableTable = cont.getAvailableItems()
-local file = gutil.open("Available.txt", "w")
+local band
+local rshift
+if gutil.isNative() then
+    band = bit32.band
+    rshift = bit32.rshift
+else
+    band = function(a, b)
+        return a & b
+    end
+    rshift = function(a, b)
+        return a >> b
+    end
+end
+local availableTable = {}
+if gutil.isNative() then
+    local cont = comp.appeng_blocks_controller
+    availableTable = cont.getAvailableItems()
+else
+    local availableFile = io.open("Available.txt", "r")
+    availableTable = serial.unserialize(availableFile:read("*a"))
+end
+--local availableFile = gutil.open("Available.txt", "w")
 
 local function pfnPotion(id)
     local StrongBit = 0x20
@@ -53,13 +72,13 @@ local function pfnPotion(id)
         [64] = "mundane",
     }
     local function getExtraNum(id, isUnfinished)
-        local sixteenth = bit32.band(id, 0x10)
-        local extracted = bit32.band(id, 0x1F80)
+        local sixteenth = band(id, 0x10)
+        local extracted = band(id, 0x1F80)
         local output = 0
         if isUnfinished then
-            output = bit32.rshift(extracted, 7) + (bit32.rshift(id, 15) * 0x40)
+            output = rshift(extracted, 7) + (rshift(id, 15) * 0x40)
         else
-            output = bit32.rshift(extracted, 6) + bit32.rshift(sixteenth, 4) + (bit32.rshift(id, 15) * 0x80)
+            output = rshift(extracted, 6) + rshift(sixteenth, 4) + (rshift(id, 15) * 0x80)
         end
         if output == 0 then
             return nil
@@ -94,7 +113,7 @@ local function pfnPotion(id)
     elseif isMundane then
         table.insert(suffixes, "Short")
     end
-    isNotDrink = not gmath.checkForBits(id, DrinkBit)
+    local isNotDrink = not gmath.checkForBits(id, DrinkBit)
     if gmath.checkForBits(id, SplashBit) then
         if isNotDrink then
             table.insert(suffixes, "Splash")
@@ -331,6 +350,16 @@ local subnameParsePats = {
             }
         },
         byDamage = {
+            AppliedEnergistics = {
+                ["AppEng.Blocks.Cable"] = {
+                    [10] = "cableBlack",
+                    [11] = "cableWhite",
+                    [12] = "cableBrown",
+                    [13] = "cableRed",
+                    [14] = "cableYellow",
+                    [15] = "cableGreen",
+                }
+            },
             Enchiridion = {["item.items"] = { [1] = "bookBinder "}},
             ForgeMicroblock = {
                 ["item.microblock"] = {
@@ -448,6 +477,12 @@ local subnameParsePats = {
                 ["tile.openblocks.trophy"] = {
                     [16] = "slime"
                 }
+            },
+            OpenComputers = {
+                ["oc:item.FloppyDisk"] = {
+                    [47] = "floppyDiskPreload",
+                    [60] = "floppyDiskOpenOs"
+                }
             }
         }
     },
@@ -483,7 +518,7 @@ local function tryGetHardcodedSubName(name, damage, curMod)
                 newName = hardTable[curMod][inname](damage, index)
             elseif hardTable[curMod][inname][index] then
                 newName = hardTable[curMod][inname][index]
-            else
+            elseif type(hardTable[curMod][inname]) ~= "table" then
                 newName = hardTable[curMod][inname]
             end
         end
@@ -513,8 +548,10 @@ local function cleanSubName(subname, niceName, damage, curMod)
         newName = gstring.stripIgnoreCase(newName, niceName, true)
         newName = gstring.stripIgnoreCase(newName, niceName .. "$")
     end
+    local num = tonumber(newName:match("^_?(%d+)$"))
+    --gdebug.printIf(niceName == "cosmeticOpaque", niceName, newName)
     newName = idk.standardizeName(newName)
-    if newName == "" or tostring(newName) == tostring(damage) then
+    if newName == "" or tostring(newName) == tostring(damage) or num == damage then
         newName = "damage_" .. damage
     end
     return newName
@@ -540,10 +577,11 @@ local function stripBadEntries(subTable)
                 count = count + 1
                 if count == 2 then break end
             end
+            --gdebug.printIf(name == "lavaTank_1", name, "count", count)
             if count == 1 then
                 local hasOthers = false
                 for _, subitem in pairs(itemTable[mod][name]) do
-                    gutil.printIf(name == "lavaTank_1", subitem.damage)
+                    --gdebug.printIf(name == "lavaTank_1", subitem, subitem.damage)
                     if subitem.damage and subitem.damage ~= 0 then
                         hasOthers = true
                         break
@@ -552,6 +590,7 @@ local function stripBadEntries(subTable)
                 --print(serial.serialize(items))
                 if not hasOthers and items[0] and items[0].subname == "damage_0" then
                     --print(serial.serialize(item))
+                    --gdebug.printIf(name == "lavaTank_1", "removing", items[0], items[0].damage)
                         table.insert(removals, { mod = mod, name = name })
                 end
             end
@@ -594,7 +633,9 @@ for i = 1, availableTable["n"] do
                 for _, subItem in pairs(itemTable[mod][niceName]) do
                     if tonumber(subItem.damage) == tonumber(damage) then
                         if niceName == "lavaTank_1" then
-                        print("Already exists", mod, niceName, damage)
+                            --print(subItem)
+                            --print(serial.serialize(subItem))
+                        --print("Already exists", mod, niceName, damage)
                         os.sleep(1)
                         end
                         alreadyExists = true
@@ -639,8 +680,8 @@ end
 
 newTable = stripBadEntries(newTable)
 --file:write(serial.serialize(availableTable, 10000))
-file:write("\n\n\n")
-file:write(serial.serialize(newTable, 10000))
+--file:write("\n\n\n")
+--file:write(serial.serialize(newTable, 10000))
 
 
 for mod, names in pairs(newTable) do
@@ -656,21 +697,45 @@ for mod, names in pairs(newTable) do
                     ["unlocalised"] = subItem.unlocalised,
                     ["damage"] = subItem.damage,
                 }
+            else
+                local alreadyItem = itemTable[mod][name][subname]
+                if alreadyItem ~= "AMBIGUOUSNAME" then
+                    local alreadyName = subname .. "_" .. alreadyItem.damage
+                    itemTable[mod][name][alreadyName] = {
+                        ["id"] = alreadyItem.id,
+                        ["type"] = alreadyItem.type,
+                        ["class"] = alreadyItem.class,
+                        ["unlocalised"] = alreadyItem.unlocalised,
+                        ["damage"] = alreadyItem.damage,
+                    }
+                    itemTable[mod][name][subname] = "AMBIGUOUSNAME"
+                end
+                subname = subname .. "_".. subItem.damage
+                if not itemTable[mod][name][subname] then
+                    itemTable[mod][name][subname] = {
+                        ["id"] = topItem.id,
+                        ["type"] = topItem.type,
+                        ["class"] = topItem.class,
+                        ["unlocalised"] = subItem.unlocalised,
+                        ["damage"] = subItem.damage,
+                    }
+                end
+                --gdebug.printIf(name == "lavaTank_1", subname, subItem.damage)
             end
         end
     end
 end
 
-local function saveItemTable(itemTable, outputPath)
-    gutil.happyPrint("Saving entire item table")
+local function saveItemTable(iTable, outputPath)
+    --gutil.happyPrint("Saving entire item table")
     
     -- Open the file in write mode to overwrite existing content
     local file = gutil.open(outputPath, "w")
     file:write("local itemTable = {\n") -- Start the Lua table
 
     -- Process each mod
-    for mod, mTable in pairs(itemTable) do
-        gutil.happyPrint("Saving mod: " .. mod)
+    for mod, mTable in pairs(iTable) do
+        --gutil.happyPrint("Saving mod: " .. mod)
         file:write(string.format('    %s={\n', mod))
 
         -- Collect and sort item names by ID
@@ -691,17 +756,34 @@ local function saveItemTable(itemTable, outputPath)
             ))
 
             -- Check for and write subitems
-            local hasSubitems = false
-            for subname, subdata in pairs(data) do
+            local sortedSubnames = {}
+            local AmbiguousSubnames = {}
+            for key, value in pairs(data) do
+                if value == "AMBIGUOUSNAME" then
+                    table.insert(AmbiguousSubnames, key)
+                elseif key ~= "id" and key ~= "type" and key ~= "class" and key ~="unlocalised" then
+                    table.insert(sortedSubnames, key)
+                end
+            end
+            table.sort(sortedSubnames, function(a, b)
+                return tonumber(mTable[name][a].damage) < tonumber(mTable[name][b].damage)
+            end)
+
+            for _, subname in ipairs(sortedSubnames) do
+                local subdata = data[subname]
                 if type(subdata) == "table" and subdata.id and subdata.damage then
-                    if not hasSubitems then
-                        hasSubitems = true
-                    end
                     file:write(string.format(
                         ',\n                %s={id="%s", damage="%s", type="%s", unlocalised="%s", class="%s"}',
                         subname, subdata.id, subdata.damage, subdata.type, subdata.unlocalised, subdata.class
                     ))
                 end
+            end
+            for _,subname in ipairs(AmbiguousSubnames) do
+                local subdata = data[subname]
+                file:write(string.format(
+                    ',\n                %s=%q',
+                    subname, subdata
+                ))
             end
             file:write("},\n") -- Close item definition
         end
@@ -711,6 +793,6 @@ local function saveItemTable(itemTable, outputPath)
     file:close()
     gutil.happyPrint("Item table saved to " .. outputPath)
 end
-local file = gutil.open("Available.txt", "w")
-file:write(serial.serialize(availableTable, 10000))
---saveItemTable(itemTable, "./FUCK")
+--local file = gutil.open("Available.txt", "w")
+--availableFile:write(serial.serialize(availableTable, 10000))
+saveItemTable(itemTable, "./ItTest.lua")

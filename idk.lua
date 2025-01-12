@@ -1,5 +1,5 @@
 local gstring = require("ghostString")
-local gutil = require("ghostUtil")
+local gutil = require("ghostUtils")
 local idk = {}
 
 idk.parsePatterns = {
