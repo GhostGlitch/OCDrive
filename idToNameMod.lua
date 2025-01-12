@@ -1,4 +1,4 @@
-local idToNameModMapping = {
+local idToNameMod = {
     [1] = {name = "stone", mod = "Minecraft"},
     [2] = {name = "grass", mod = "Minecraft"},
     [3] = {name = "dirt", mod = "Minecraft"},
@@ -2547,4 +2547,4 @@ local idToNameModMapping = {
     [31977] = {name = "fertilizerBio", mod = "Forestry"},
 }
 
-return idToNameModMapping
+return idToNameMod

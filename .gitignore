@@ -57,3 +57,6 @@ itemGTNH.csv
 itemTable.csv
 eventTest.lua
 collision_log2.txt
+idToUnlocal.lua
+itemTableID.lua
+makeITMaps.lua
