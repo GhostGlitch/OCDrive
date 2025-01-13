@@ -16,7 +16,7 @@ local function toRoot()
     shell.setWorkingDirectory("/")
 end
 event.timer(0,toRoot,1)
-local function swithToRole(shouldPrint)
+local function switchToRole(shouldPrint)
     if ROLE == "NOROLE" then
         gutil.printIf(shouldPrint, "Initialization complete.")
     else
@@ -33,7 +33,7 @@ local function swithToRole(shouldPrint)
 end
 
 if not term.isAvailable() then
-    swithToRole(false)
+    switchToRole(false)
 end
 
 local gcomp = require("ghostComp")
@@ -159,4 +159,5 @@ end
 --os.sleep(1)
 
 
-swithToRole(true)
+local suc = pcall(switchToRole(true))
+if not suc then switchToRole(true) end
