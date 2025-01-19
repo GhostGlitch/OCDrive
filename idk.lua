@@ -343,4 +343,15 @@ function idk.parseName(name, class, id, curMod, hardcodedNameFunc)
     return newName
 end
 
+function idk.sortKeysByID(mTable)
+    local nameKeys = {}
+    for name in pairs(mTable) do
+        table.insert(nameKeys, name)
+    end
+    table.sort(nameKeys, function(a, b)
+        return tonumber(mTable[a].id) < tonumber(mTable[b].id)
+    end)
+    return nameKeys
+end
+
 return idk

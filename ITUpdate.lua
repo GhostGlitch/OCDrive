@@ -733,13 +733,8 @@ local function saveItemTable(iTable, outputPath)
         file:write(string.format('    %s={\n', mod))
 
         -- Collect and sort item names by ID
-        local nameKeys = {}
-        for name in pairs(mTable) do
-            table.insert(nameKeys, name)
-        end
-        table.sort(nameKeys, function(a, b)
-            return tonumber(mTable[a].id) < tonumber(mTable[b].id)
-        end)
+        local nameKeys = idk.sortKeysByID(mTable)
+
         -- Process each item
         for i, name in ipairs(nameKeys) do
             local data = mTable[name]
@@ -801,11 +796,11 @@ function main()
     saveItemTable(iTable, "./ItTest.lua")
     coroutine.yield("DONE")
 end
-coco = coroutine.create(main)
-function dod()
-    while true do
-        print(coroutine.resume(coco))
-    os.sleep(.01)
-    end
-end
+--coco = coroutine.create(main)
+--function dod()
+ --   while true do
+--        print(coroutine.resume(coco))
+--        os.sleep(.01)
+--    end
+--end
 return main

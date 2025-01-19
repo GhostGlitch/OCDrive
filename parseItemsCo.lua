@@ -251,13 +251,7 @@ local function saveMod(mTable, itemTablePath)
     coroutine.yield("saving " .. curMod)
     local file = gutil.open(itemTablePath, "a")
     file:write(string.format('    %s={\n', curMod))
-    local nameKeys = {}
-    for name, data in pairs(mTable) do
-        table.insert(nameKeys, name)
-    end
-    table.sort(nameKeys, function(a, b)
-        return tonumber(mTable[a].id) < tonumber(mTable[b].id)
-    end)
+    local nameKeys = idk.sortKeysByID(mTable)
     for _, name in ipairs(nameKeys) do
         local data = mTable[name]
         local id = tonumber(data.id)
@@ -279,7 +273,7 @@ local function finishTableFile(tableName, path, finalPath)
 end
 
 function main()
-    coroutine.yield("DONE")
+    coroutine.yield("HI")
     local Fucked = false
     fs.remove(collisionFilePath)
 
