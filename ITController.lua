@@ -1,9 +1,24 @@
 local fs = require("filesystem")
 local shell = require("shell")
+local ev = require("event")
 local args, ops = shell.parse(...)
 local isNew = (ops["new"] or ops["n"]) or not fs.exists("/itemTable.lua")
-if isNew then
-    os.execute("parseItemsMem.lua")
-    os.execute("makeIDToNameModTable")
+local function notNew()
+    print("notNew")
+    t = require("test")
+    t()
 end
-os.execute("test.lua")
+local function aftert4()
+    print("AT4")
+    make = require("makeIDToNameModTable")
+    make()
+    notNew()
+end
+if true or isNew then
+    t4 = require("test4")
+    t4()
+
+    ev.listen("itable_made", aftert4)
+else
+    notNew()
+end
