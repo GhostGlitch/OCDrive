@@ -3,25 +3,14 @@ local gdebug = require("ghostDebug").getDebug(true, false)
 local comp = require("component")
 local serial = require("serialization")
 local fs = require("filesystem")
-local itemTable = require("ITTestDone")
+local itemTable = require("ITTest")
 local idTable = require("idToNameMod")
 local gstring = require("ghostString")
 local idk = require("idk")
 local gutil = require("ghostUtils")
 local gmath = require("ghostMath")
-local band
-local rshift
-if gutil.isNative() then
-    band = bit32.band
-    rshift = bit32.rshift
-else
-    band = function(a, b)
-    --    return a & b
-    end
-    rshift = function(a, b)
-    --    return a >> b
-    end
-end
+local b32 = gmath.bit32
+
 local availableTable = {}
 if gutil.isNative() then
     local cont = comp.appeng_blocks_controller
@@ -72,13 +61,13 @@ local function pfnPotion(id)
         [64] = "mundane",
     }
     local function getExtraNum(id, isUnfinished)
-        local sixteenth = band(id, 0x10)
-        local extracted = band(id, 0x1F80)
+        local sixteenth = b32.band(id, 0x10)
+        local extracted = b32.band(id, 0x1F80)
         local output = 0
         if isUnfinished then
-            output = rshift(extracted, 7) + (rshift(id, 15) * 0x40)
+            output = b32.rshift(extracted, 7) + (b32.rshift(id, 15) * 0x40)
         else
-            output = rshift(extracted, 6) + rshift(sixteenth, 4) + (rshift(id, 15) * 0x80)
+            output = b32.rshift(extracted, 6) + b32.rshift(sixteenth, 4) + (b32.rshift(id, 15) * 0x80)
         end
         if output == 0 then
             return nil
@@ -595,7 +584,7 @@ local function stripBadEntries(subTable)
                 end
             end
         end
-        coroutine.yield("cleaned ".. mod)
+        coroutine.yield("cleaned ".. mod, gutil.vibes.happy)
     end
     for _, keys in ipairs(removals) do
         subTable[keys.mod][keys.name] = nil
@@ -611,7 +600,7 @@ local function makeNewTable(iTable)
     local newTable = {}
     for i = 1, availableTable["n"] do
         if i%64 == 0 then
-            coroutine.yield("Make "..i)
+            coroutine.yield("Parsed "..i.." items in inventory")
         end
         local item = availableTable[i]
         local ignore = false
@@ -714,7 +703,7 @@ local function updateIT(newTable, iTable)
                 end
             end
         end
-        coroutine.yield("Subitems added to " .. mod)
+        coroutine.yield("Subitems added to " .. mod, gutil.vibes.happy)
     end
 return iTable
 end
@@ -724,8 +713,7 @@ local function saveItemTable(iTable, outputPath)
     --gutil.happyPrint("Saving entire item table")
     
     -- Open the file in write mode to overwrite existing content
-    local file = io.open(outputPath, "w")
-    if not file then coroutine.yield("FUCK") end
+    local file = gutil.open(outputPath, "w")
     file:write("local itemTable = {\n") -- Start the Lua table
     -- Process each mod
     for mod, mTable in pairs(iTable) do
@@ -781,20 +769,20 @@ local function saveItemTable(iTable, outputPath)
     file:write("}\nreturn itemTable") -- Close the Lua table
     file:close()
 
-    coroutine.yield("Item table saved to " .. outputPath)
+    coroutine.yield("Item table saved to " .. outputPath, gutil.vibes.happy)
     fs.rename(outputPath, "/ITTestDone.lua")
 end
 
 function main()
     --print("start")
     local newTable = makeNewTable(itemTable)
-    coroutine.yield("tableMade")
+    coroutine.yield("tableMade", gutil.vibes.happy)
     newTable = stripBadEntries(newTable)
-    coroutine.yield("bad stripped")
+    coroutine.yield("bad stripped", gutil.vibes.happy)
     iTable = updateIT(newTable, itemTable)
-    coroutine.yield("ITable updated")
+    coroutine.yield("ITable updated", gutil.vibes.happy)
     saveItemTable(iTable, "./ItTest.lua")
-    coroutine.yield("DONE")
+    coroutine.yield("DONE", gutil.vibes.happy)
 end
 --coco = coroutine.create(main)
 --function dod()

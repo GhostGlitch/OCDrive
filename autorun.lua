@@ -15,6 +15,7 @@ local event = require("event")
 local function toRoot()
     shell.setWorkingDirectory("/")
 end
+gutil.emptyDir("/tmp")
 event.timer(0,toRoot,1)
 local function switchToRole(shouldPrint)
     if ROLE == "NOROLE" then
@@ -156,6 +157,7 @@ else
     print("Saving backup of config to " .. screen.address .. ".bak")
     fs.copy(scrcfgPath, scrcfgBakPath)
 end
+gutil.reloadRes()
 --os.sleep(1)
 
 

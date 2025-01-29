@@ -1,7 +1,13 @@
 local gutil = require("ghostUtils")
 local gmath = {}
 
-gmath.version = 1.0
+gmath.version = 1.1
+
+if gutil.isNative() then
+    gmath.bit32 = bit32
+else
+    gmath.bit32 = require("emuBit32")
+end
 
 function gmath.gcd(a, b)
     while b ~= 0 do
@@ -21,11 +27,9 @@ function gmath.percToMCHex(percent)
 end
 
 function gmath.checkForBits(a, b)
-    if gutil.isNative() then
-        return bit32.band(a, b) ~= 0
-    else
-        return a & b ~= 0
-    end
+
+        return gmath.bit32.band(a, b) ~= 0
+
 end
 
 
@@ -77,7 +81,7 @@ end
 local RNumsOrder = { { "I", "V", "X" }, { "X", "L", "C" }, { "C", "D", "M" }}
 
 function gmath.toRoman(num)
-    if num==nil then error("NIHILO") end
+    if num == nil then error("NIHILO") end
     num = tonumber(num)
     if not num or num ~= num then error("MALUS NUMERUS") end
     if num == math.huge then return "INFINITUM" end
@@ -94,10 +98,10 @@ function gmath.toRoman(num)
         local digit = tonumber(letter)
         local resPrefix = ""
 
-        local symbolReps = 0           --num of times symbol has repeated (must not be > 3)
-        local substSymbol = 1          --symbol to substitute with (from roman_nums_order table)
+        local symbolReps = 0     --num of times symbol has repeated (must not be > 3)
+        local substSymbol = 1    --symbol to substitute with (from roman_nums_order table)
         local substSymbolInc = 1 --can be 1 or 2, depending if we are before 5 or after 5 (e.g. if we need to use V or X)
-        if i >= 4 then --special case for thousands
+        if i >= 4 then           --special case for thousands
             local thousands = tonumber(str:sub(1, strLen - i + 1))
             resPrefix = string.rep("M", thousands)
             result = resPrefix .. result
@@ -115,7 +119,7 @@ function gmath.toRoman(num)
                 --check if next digit exists in advance  -> to remove substraction possibility
                 if j + 1 <= digit then
                     resPrefix = RNumsOrder[i][substSymbol]
-                    j = j + 1                                        --go to next numeral ( e.g. IV -> V )
+                    j = j + 1                                  --go to next numeral ( e.g. IV -> V )
                     substSymbol = substSymbol - substSymbolInc --go back to small units
                     substSymbolInc = substSymbolInc + 1
                 end
@@ -123,8 +127,10 @@ function gmath.toRoman(num)
             j = j + 1
         end
         result = resPrefix .. result
-        end
+    end
     return result
 end
+
+
 
 return gmath

@@ -91,7 +91,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
                 end
                 table.insert(buffers[mod], line)
                 if #buffers[mod] >= bufferSize then
-                    coroutine.yield("BUFFER FULL. DUMPING DATA")
+                    coroutine.yield("BUFFER FULL. DUMPING DATA", gutil.vibes.uneasy)
                     saveBuffer(buffers[mod], outputDir, mod)
                     buffers[mod] = {} -- Clear the buffer
                 end
@@ -108,7 +108,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     if fs.exists(extraCsvPath) then
         handleCSV(extraCsvPath)
     end
-    coroutine.yield("READ DONE. DUMPING REMAINING")
+    coroutine.yield("READ DONE. DUMPING REMAINING", gutil.vibes.uneasy)
 
     -- Write remaining data in buffers
     for mod, buffer in pairs(buffers) do
@@ -118,7 +118,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     end
 
     if VERBOSE then
-        coroutine.yield("Processed " .. lineCount .. " lines and split into mod-specific files.")
+        coroutine.yield("Processed " .. lineCount .. " lines and split into mod-specific files.", gutil.vibes.happy)
     end
 end
 
@@ -248,7 +248,7 @@ local function startTableFile(tableName, fileName)
     return tempOutputPath
 end
 local function saveMod(mTable, itemTablePath)
-    coroutine.yield("saving " .. curMod)
+    coroutine.yield("saving " .. curMod, gutil.vibes.happy)
     local file = gutil.open(itemTablePath, "a")
     file:write(string.format('    %s={\n', curMod))
     local nameKeys = idk.sortKeysByID(mTable)
@@ -269,11 +269,10 @@ local function finishTableFile(tableName, path, finalPath)
     file:close()
     fs.remove(finalPath)
     fs.rename(path, finalPath)
-    coroutine.yield(tableName .. " saved to " .. finalPath)
+    coroutine.yield(tableName .. " saved to " .. finalPath, gutil.vibes.happy)
 end
 
 function main()
-    coroutine.yield("HI")
     local Fucked = false
     fs.remove(collisionFilePath)
 
@@ -291,7 +290,7 @@ function main()
     -- Iterate alphabetically
     for _, mod in ipairs(modNames) do
         curMod = mod
-        coroutine.yield("Processing " .. mod)
+        coroutine.yield("Processing " .. mod, gutil.vibes.uneasy)
         local modTable = constructModTable()
         fixCollisions(modTable, "type", fixNameFromType)
         fixCollisions(modTable, "class", fixNameFromClass)
@@ -302,7 +301,7 @@ function main()
         local collisionStr = testCollisions(modTable)
         if collisionStr ~= "" then
             if VERBOSE then
-                coroutine.yield("Not all collisions fixed for " .. curMod)
+                coroutine.yield("Not all collisions fixed for " .. curMod, gutil.vibes.angry)
             end
             local colfile = gutil.open(collisionFilePath, "a")
             colfile:write(collisionStr)
@@ -317,7 +316,7 @@ function main()
 
             --normalizeNames(modTable)
             saveMod(modTable, tempITPath)
-            coroutine.yield("Finished mod ".. curMod)
+            coroutine.yield("Finished mod ".. curMod, gutil.vibes.happy)
         end
     end
 
@@ -326,10 +325,10 @@ function main()
         finishTableFile("itemTable", tempITPath, FinalItemTablePath)
         --print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
     else
-        coroutine.yield("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath)
+        coroutine.yield("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath, gutil.vibes.angry)
     end
 
     fs.remove(TempOutputDir)
-    coroutine.yield("DONE")
+    coroutine.yield("DONE", gutil.vibes.happy)
 end
 return main

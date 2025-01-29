@@ -4,18 +4,22 @@ local ev = require("event")
 local ser = require("serialization")
 local fs = require("filesystem")
 local comp = require("component")
+local gpu = comp.gpu
 local term = require("term")
 local unicode = require("unicode")
 local gutil = {}
 
-gutil.version = 1.6
+gutil.version = 1.7
 gutil.vibes = {
     angry = 0xFF0000,
     happy = 0x00FF00,
-    uneasy = 0xFFFF00
+    uneasy = 0xFFFF00,
+    neutral = 0xFFFFFF
 }
-gutil.gpuX, gutil.gpuY = comp.gpu.getResolution()
-
+gutil.gpuX, gutil.gpuY = gpu.getResolution()
+function gutil.reloadRes()
+  gutil.gpuX, gutil.gpuY = gpu.getResolution()
+end
 function gutil.parseCSV(s)
     local result = {}
     local row = {}
@@ -161,9 +165,9 @@ function gutil.readFile(path)
 end
 
 function gutil.colorPrint(color, ...)
-    local previous = comp.gpu.setForeground(color)
+    local previous = gpu.setForeground(color)
     print(...)
-    comp.gpu.setForeground(previous)
+    gpu.setForeground(previous)
 end
 
 function gutil.angryPrint(...)
@@ -217,14 +221,20 @@ end
 function gutil.replaceLineAtPos(x, y, str)
   term.setCursor(x, y)
   term.clearLine()
-  comp.gpu.set(x,y,str)
+  gpu.set(x,y,str)
 end
-function gutil.printBox(x, y, ...)
+function gutil.printBox(x, y, foreground, background, ...)
   local oldBlink = term.getCursorBlink()
   term.setCursorBlink(false)
   local oldCurX, oldCurY = term.getCursor()
-
-
+  local oldFore = gpu.getForeground()
+  local oldBack = gpu.getBackground()
+  if foreground then
+      gpu.setForeground(foreground)
+  end
+  if background then
+    gpu.setBackground(background)
+  end
   --term.setCursor(x, y)
   local width = 0
   local args = { ... }
@@ -248,17 +258,16 @@ function gutil.printBox(x, y, ...)
     end
     x=x-1
   if y > 1 then
-      local lowestBottom = 1
       if y + height <= gutil.gpuY then
           for i = y + height, 1, -1 do
-              char = comp.gpu.get(x + 2, i)
+              local char = gpu.get(x + 2, i)
               if char == borders[3][2] then
                   lowestBottom = i
                   local dif = y + height - lowestBottom
                   local tx, ty = term.getCursor()
-                    comp.gpu.copy(1, lowestBottom + 1, 200, dif, 0, -height - 2)
+                    gpu.copy(1, lowestBottom + 1, 200, dif, 0, -height - 2)
                   if ty >= lowestBottom +1 and ty <= lowestBottom+1+dif then
-                    comp.gpu.set(tx,ty-height-2, " ")
+                    gpu.set(tx,ty-height-2, " ")
                   end
                   break
               end
@@ -267,7 +276,7 @@ function gutil.printBox(x, y, ...)
       gutil.replaceLineAtPos(x, y - 1, borders[1][1].. string.rep(borders[1][2], width).. borders[1][3])
   end
   local ind = 0
-  for i, line in ipairs(lines) do
+  for _, line in ipairs(lines) do
 
         gutil.replaceLineAtPos(x, y + ind, borders[2][1] .. line .. (" "):rep(width - #line) .. borders[2][3])
         ind = ind + 1
@@ -275,17 +284,24 @@ function gutil.printBox(x, y, ...)
           break
       end
   end
-  if y+ind<=gutil.gpuY then
-  gutil.replaceLineAtPos(x, y + ind, borders[3][1] .. string.rep(borders[3][2], width) .. borders[3][3])
+  if y + ind <= gutil.gpuY then
+      gutil.replaceLineAtPos(x, y + ind, borders[3][1] .. string.rep(borders[3][2], width) .. borders[3][3])
   end
+  gpu.setForeground(oldFore)
+  gpu.setBackground(oldBack)
   term.setCursor(oldCurX, oldCurY)
   term.setCursorBlink(oldBlink)
 end
 
 function gutil.writeColor(str, color, wrap)
-  local oldColor = comp.gpu.setForeground(color)
+  local oldColor = gpu.setForeground(color)
   term.write(str, wrap)
   return oldColor
 end
 
+function gutil.emptyDir(dir)
+  for path in fs.list(dir) do
+    fs.remove(fs.concat(dir, path))
+  end
+end
 return gutil

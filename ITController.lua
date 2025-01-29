@@ -1,124 +1,131 @@
 local fs = require("filesystem")
 local shell = require("shell")
 local ev = require("event")
-local args, ops = shell.parse(...)
-local isNew = (ops["new"] or ops["n"]) or not fs.exists("/itemTable.lua")
-local function notNew()
-    print("notNew")
-    local test = require("test")
-    test()
-end
-local function aftert4()
-    print("AT4")
-    local make = require("makeIDToNameModTable")
-    make("ITConTest")
-    notNew()
-end
---os.execute("librel")
-local event = require("event")
-local coro = require("coroutine")
-local cofu = require("parseItemsCo")
-print(cofu)
-local ev = require("event")
 local term = require("term")
 local gutil = require("ghostUtils")
+local coro = require("coroutine")
 
-local coco =  coro.create(cofu)
+local COFU
+local COCO
+local CODELAY_N = 0
+local CODELAY_U = 1
+local LIS_STOP_DELAY = .5
+local genTracker = false
+local listenerPath = "/tmp/ITListeners"
+
 local lastX = 0
 local lastY = 0
 local lastL1 = ""
 local lastL2 = ""
-local maxCur = 0
+local lastFore = nil
+local lastBack = nil
+local function printBox(x, y, foreground, background, messageL1, messageL2)
+    lastX, lastY = x,y
+    lastL1, lastL2 = messageL1, messageL2
+    lastFore, lastBack = foreground, background
+    gutil.printBox(lastX, lastY,foreground,background, lastL1, lastL2)
+end
+local args, ops = shell.parse(...)
+local isNew = (ops["new"] or ops["n"]) or not fs.exists("/itemTable.lua")
+local function stopListeners()
+    local file = io.open(listenerPath, "r")
+    if file then
+        for line in file:lines() do
+            local listener = tonumber(line)
+            if ev.cancel(listener) then
+                printBox(1, 1, nil, nil, "Listener cancelled")
+                os.sleep(LIS_STOP_DELAY)
+            else
+                printBox(1, 1, gutil.vibes.uneasy, nil, "Listener not found")
+                os.sleep(LIS_STOP_DELAY)
+            end
+        end
+        file:close()
+    end
+    fs.remove(listenerPath)
+end
+
+if ops["stop"] or ops["s"] then
+    print("Stopping timers")
+    stopListeners()
+    return
+end
 
 local function redrawOnEnter(_, _, _, keycode)
     if keycode == 0x1C then
-
         --somehow more responsive than a direct call
         local function rebox(yadd)
-            gutil.printBox(lastX, lastY + yadd, lastL1)
+            gutil.printBox(lastX, lastY + yadd,lastFore, lastBack, lastL1)
         end
-        --rebox(1)
+        --print(lastX, lastY, lastL1)
         local tx, ty = term.getCursor()
         if ty == gutil.gpuY then
             rebox(1)
         end
-        --rebox()
     end
 end
 
-local function stopEvents()
-    file = io.open("timerID", "r")
-    if file then
-        for line in file:lines() do
-            local listener = tonumber(line)
-            if event.cancel(listener) then
-                print("Listener cancelled")
-            else
-                print("Listener not found")
-            end
-        end
-
-        file:close()
-    end
-end
-local CTIME
-local function coroDo()
-    if coco and coro.status(coco) == "running" then
-        print("TOO FAST")
+local function cocoDo()
+    if COCO and coro.status(COCO) == "running" then
+        printBox(1,1,gutil.vibes.angry, nil, "TOO FAST")
         return
     end
-    if not coco or coro.status(coco) == "dead" then
-        --os.exit()
-        coco = coro.create(cofu)
+    if not COCO or coro.status(COCO) == "dead" then
+        COCO = coro.create(COFU)
     end
-    --local a, b = table.unpack(resumeTable[coVal])
-    stat, coVal = coro.resume(coco)
-    if coVal == "DONE"  then
-        print("stop")
-        stopEvents()
-        file = gutil.open("TableMade", "w")
+    local stat, coVal, vibe = coro.resume(COCO)
+    if not vibe then vibe = gutil.vibes.neutral end
+    --print(stat, coVal)
+    if coVal == "DONE" then
+        if isNew then
+            printBox(1,1, vibe, nil, "STOPPING")
+            stopListeners()
+            genTracker = true
+        end
+    end
+    printBox(1, 1, vibe, nil, coVal)
+end
+local function startEnterListener()
+    if not fs.exists("/tmp/ITEnLis") then
+        local file = gutil.open("/tmp/ITEnLis", "w")
         file:write("true")
         file:close()
+        ev.listen("key_down", redrawOnEnter)
     end
-    local x, y = term.getCursor()
-    lastX, lastY = 1, 1
-    lastL1 = coVal
-    gutil.printBox(lastX, lastY, coVal)
 end
 
-local function startTime()
-    local timer = ev.timer(0, coroDo, math.huge)
-    CTIME = timer
-    --local listener = ev.listen("key_down", redrawOnEnter)
-    return timer--, listener
+local function startCoro(req, codel)
+    stopListeners()
+    COFU = require(req)
+    COCO = coro.create(COFU)
+    local timer = ev.timer(codel, cocoDo, math.huge)
+    startEnterListener()
+    local file = gutil.open(listenerPath, "w")
+    file:write(timer)
+    file:close()
+end
+local function update()
+    printBox(1, 1, gutil.vibes.uneasy, nil, "STARTING UPDATE")
+    os.sleep(CODELAY_U)
+    startCoro("ITUpdate", CODELAY_U)
 end
 
-function test4()
-    if ops["stop"] or ops["s"] then
-        print("stopping timer")
-        stopEvents()
-    else
-        stopEvents()
-        timer, listener = startTime()
-        file = io.open("timerID", "w")
-        file:write(timer)
-        --file:write("\n")
-        --file:write(listener)
-        file:close()
+local genTrackerTimer
+local function checkForGenTracker()
+    if genTracker then
+        ev.cancel(genTrackerTimer)
+        genTracker = false
+        printBox(1, 1,gutil.vibes.neutral, nil, "Making ID Conversion Table")
+        os.sleep(CODELAY_U)
+        local make = require("makeIDToNMMem")
+        make()
+        isNew = false
+        update()
     end
 end
-local garbageTimer
-local function checkForGarbage()
-    if fs.exists("/TableMade") then
-        print("table is good")
-        ev.cancel(garbageTimer)
-        fs.remove("/TableMade")
-        aftert4()
-    end
-end
-if true or isNew then
-    garbageTimer = ev.timer(1, checkForGarbage, math.huge)
-    test4()
+if isNew then
+    genTrackerTimer = ev.timer(1, checkForGenTracker, math.huge)
+    startCoro("parseItemsCo", CODELAY_N)
 else
-    notNew()
+    update()
 end
