@@ -1,8 +1,8 @@
 local gstring = require("ghostString")
 local gutil = require("ghostUtils")
-local idk = {}
+local pcore = {}
 
-idk.parsePatterns = {
+pcore.parsePatterns = {
     modAliases = {
         AWWayofTime = "BloodMagic",
         ["crowley.skyblock"] = "exnihilo"
@@ -173,36 +173,36 @@ idk.parsePatterns = {
         }
     }
 }
-function idk.stripNamespace(str, namespace, fromAnywhere)
+function pcore.stripNamespace(str, namespace, fromAnywhere)
     namespace = namespace:lower()
     local stripStr = (namespace .. "[:%.]")
     return gstring.stripIgnoreCase(str, stripStr, true, fromAnywhere)
 end
-function idk.stripNamespaceSuffix(str, namespace)
+function pcore.stripNamespaceSuffix(str, namespace)
     namespace = namespace:lower()
     local stripStr = ("[:%.]" .. namespace .. "$")
     return gstring.stripIgnoreCase(str, stripStr)
 end
-function idk.stripEachNamespace(str, namespaceTable, fromAnywhere)
+function pcore.stripEachNamespace(str, namespaceTable, fromAnywhere)
     for _, namespace in ipairs(namespaceTable) do
-        str = idk.stripNamespace(str, namespace, fromAnywhere)
+        str = pcore.stripNamespace(str, namespace, fromAnywhere)
     end
     return str
 end
-function idk.stripEachNamespaceSuffix(str, namespaceTable)
+function pcore.stripEachNamespaceSuffix(str, namespaceTable)
     for _, namespace in ipairs(namespaceTable) do
-        str = idk.stripNamespaceSuffix(str, namespace)
+        str = pcore.stripNamespaceSuffix(str, namespace)
     end
     return str
 end
-function idk.stripModNamespace(str, modPatterns, curMod)
+function pcore.stripModNamespace(str, modPatterns, curMod)
     if modPatterns[curMod] then
-        str = idk.stripEachNamespace(str, modPatterns[curMod], true)
+        str = pcore.stripEachNamespace(str, modPatterns[curMod], true)
     end
-        str = idk.stripNamespace(str, curMod, true)
+        str = pcore.stripNamespace(str, curMod, true)
     return str
 end
-function idk.stripPre(str, prefixTable, curMod)
+function pcore.stripPre(str, prefixTable, curMod)
     if prefixTable[curMod] then
         for _, pattern in ipairs(prefixTable[curMod]) do
             str = gstring.stripIgnoreCase(str, pattern, true) -- Apply each pattern
@@ -211,16 +211,16 @@ function idk.stripPre(str, prefixTable, curMod)
     return str
 end
 
-function idk.stripNamespacesName(name, curMod)
-    local newName = idk.stripEachNamespace(name, idk.parsePatterns.generalNamespaces.name)
-    newName = idk.stripModNamespace(newName, idk.parsePatterns.modNamespaces.name, curMod)
-    newName = idk.stripEachNamespace(newName, idk.parsePatterns.generalNamespaces.name)
-    return idk.stripEachNamespaceSuffix(newName, idk.parsePatterns.generalNamespaceSufixes)
+function pcore.stripNamespacesName(name, curMod)
+    local newName = pcore.stripEachNamespace(name, pcore.parsePatterns.generalNamespaces.name)
+    newName = pcore.stripModNamespace(newName, pcore.parsePatterns.modNamespaces.name, curMod)
+    newName = pcore.stripEachNamespace(newName, pcore.parsePatterns.generalNamespaces.name)
+    return pcore.stripEachNamespaceSuffix(newName, pcore.parsePatterns.generalNamespaceSufixes)
 end
 
 
-function idk.cleanName(name, curMod)
-    local newName = idk.stripPre(name, idk.parsePatterns.modPrefixes.name, curMod)
+function pcore.cleanName(name, curMod)
+    local newName = pcore.stripPre(name, pcore.parsePatterns.modPrefixes.name, curMod)
 
     local lowername = newName:lower()
     if lowername ~= "item" and lowername ~= "cheatyitem"
@@ -229,8 +229,8 @@ function idk.cleanName(name, curMod)
         newName = gstring.stripIgnoreCase(newName, "Item$")
     end
 
-    if idk.parsePatterns.modSubs.name[curMod] then
-        for from, to in pairs(idk.parsePatterns.modSubs.name[curMod]) do
+    if pcore.parsePatterns.modSubs.name[curMod] then
+        for from, to in pairs(pcore.parsePatterns.modSubs.name[curMod]) do
             newName = newName:gsub(from, to)
         end
     end
@@ -239,18 +239,18 @@ function idk.cleanName(name, curMod)
     return newName
 end
 
-function idk.cleanClass(class, curMod)
+function pcore.cleanClass(class, curMod)
     class = class:gsub("%s", "")
-    class = idk.stripModNamespace(class, idk.parsePatterns.modNamespaces.class, curMod)
+    class = pcore.stripModNamespace(class, pcore.parsePatterns.modNamespaces.class, curMod)
 
 
-    class = idk.stripEachNamespace(class, idk.parsePatterns.generalNamespaces.class)
+    class = pcore.stripEachNamespace(class, pcore.parsePatterns.generalNamespaces.class)
     return class
 end
-function idk.standardizeName(name)
+function pcore.standardizeName(name)
 
     local newName = name:gsub("[_%./](.)", function(match) return match:upper() end)
-    for pattern, replacement in pairs(idk.parsePatterns.generalSubs) do
+    for pattern, replacement in pairs(pcore.parsePatterns.generalSubs) do
         newName = newName:gsub(pattern, replacement)
     end
     if newName ~= newName:upper() then
@@ -266,7 +266,7 @@ function idk.standardizeName(name)
     end
     return newName
 end
-function idk.finalClean(name)
+function pcore.finalClean(name)
     local StorageBlocks = {
         "iron", "gold", "lapis",
         "diamond", "coal", "redstone",
@@ -291,10 +291,10 @@ function idk.finalClean(name)
     if tmp ~= "" and tmp ~= "s" then
         newName = tmp
     end
-    newName = idk.standardizeName(newName)
+    newName = pcore.standardizeName(newName)
     return newName
 end
-function idk.tryGetHardcodedName(name, id, curMod, class)
+function pcore.tryGetHardcodedName(name, id, curMod, class)
     class = gstring.extractLastSegDot(class)
     local newName = nil
     local function getName(hardTable, field)
@@ -303,12 +303,12 @@ function idk.tryGetHardcodedName(name, id, curMod, class)
         end
     end
     id = tonumber(id)
-    getName(idk.parsePatterns.hardcoded.byClass, class)
-    getName(idk.parsePatterns.hardcoded.byID, id)
-    getName(idk.parsePatterns.hardcoded.byName, name)
+    getName(pcore.parsePatterns.hardcoded.byClass, class)
+    getName(pcore.parsePatterns.hardcoded.byID, id)
+    getName(pcore.parsePatterns.hardcoded.byName, name)
     return newName
 end
-function idk.fixNameFromClassCore(oldName, item, curMod, tryPostfix)
+function pcore.fixNameFromClassCore(oldName, item, curMod, tryPostfix)
     local classFinal = gstring.extractLastSegDot(item.class)
     local newName = classFinal
     local prefix, number = oldName:match("(%a+)[_%.]?(%d+)$")
@@ -319,31 +319,31 @@ function idk.fixNameFromClassCore(oldName, item, curMod, tryPostfix)
             newName = oldName .. classPostfix
         end
     end
-    newName = idk.stripPre(newName, idk.parsePatterns.modPrefixes.classAsName, curMod)
+    newName = pcore.stripPre(newName, pcore.parsePatterns.modPrefixes.classAsName, curMod)
     if number then
         newName = newName .. "_" .. number
     end
-    newName = idk.finalClean(newName)
+    newName = pcore.finalClean(newName)
     return newName
 end
-function idk.parseName(name, class, id, curMod, hardcodedNameFunc)
+function pcore.parseName(name, class, id, curMod, hardcodedNameFunc)
     local hardName = hardcodedNameFunc(name, id, curMod, class)
-    local simpleName = idk.stripNamespacesName(name, curMod)
+    local simpleName = pcore.stripNamespacesName(name, curMod)
     local newName
     if hardName then
-        newName = idk.standardizeName(hardName)
+        newName = pcore.standardizeName(hardName)
     elseif simpleName == "null" then
         local item = { class = class }
-        newName = idk.fixNameFromClassCore(simpleName, item, curMod, false)
+        newName = pcore.fixNameFromClassCore(simpleName, item, curMod, false)
     else
-        newName = idk.cleanName(simpleName, curMod)
-        newName = idk.finalClean(newName)
+        newName = pcore.cleanName(simpleName, curMod)
+        newName = pcore.finalClean(newName)
     end
     --idk.printIfRename(simpleName, newName)
     return newName
 end
 
-function idk.sortKeysByID(mTable)
+function pcore.sortKeysByID(mTable)
     local nameKeys = {}
     for name in pairs(mTable) do
         table.insert(nameKeys, name)
@@ -354,4 +354,4 @@ function idk.sortKeysByID(mTable)
     return nameKeys
 end
 
-return idk
+return pcore

@@ -6,7 +6,7 @@ local fs = require("filesystem")
 local itemTable = require("ITTest")
 local idTable = require("idToNameMod")
 local gstring = require("ghostString")
-local idk = require("idk")
+local parseCore = require("ITParseCore")
 local gutil = require("ghostUtils")
 local gmath = require("ghostMath")
 local b32 = gmath.bit32
@@ -539,7 +539,7 @@ local function cleanSubName(subname, niceName, damage, curMod)
     end
     local num = tonumber(newName:match("^_?(%d+)$"))
     --gdebug.printIf(niceName == "cosmeticOpaque", niceName, newName)
-    newName = idk.standardizeName(newName)
+    newName = parseCore.standardizeName(newName)
     if newName == "" or tostring(newName) == tostring(damage) or num == damage then
         newName = "damage_" .. damage
     end
@@ -550,7 +550,7 @@ local function parseSubName(subName, curMod, niceName, damage)
         subName = "damage_" .. damage
     end
     --gdebug.printIfDelay(curMod == "nil", .1, name)
-    local newName = idk.parseName(subName, nil, damage, curMod, tryGetHardcodedSubName)
+    local newName = parseCore.parseName(subName, nil, damage, curMod, tryGetHardcodedSubName)
     newName = cleanSubName(newName, niceName, damage, curMod)
     --idk.printIfRename(simpleName, newName)
     return newName
@@ -721,7 +721,7 @@ local function saveItemTable(iTable, outputPath)
         file:write(string.format('    %s={\n', mod))
 
         -- Collect and sort item names by ID
-        local nameKeys = idk.sortKeysByID(mTable)
+        local nameKeys = parseCore.sortKeysByID(mTable)
 
         -- Process each item
         for i, name in ipairs(nameKeys) do

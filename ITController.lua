@@ -125,7 +125,7 @@ local function checkForGenTracker()
 end
 if isNew then
     genTrackerTimer = ev.timer(1, checkForGenTracker, math.huge)
-    startCoro("parseItemsCo", CODELAY_N)
+    startCoro("ITGen", CODELAY_N)
 else
     update()
 end

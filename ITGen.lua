@@ -2,7 +2,7 @@ local fs = require("filesystem")
 local gutil = require("ghostUtils")
 local puter = require("computer")
 local shell = require("shell")
-local idk = require("idk")
+local parseCore = require("ITParseCore")
 local args, ops = shell.parse(...)
 if puter.totalMemory() < 27000 then
     error("Craft or Download more RAM")
@@ -38,7 +38,7 @@ local function modFromLine(line)
     else
         mod = mod:gsub("%s", "")
     end
-    mod = idk.parsePatterns.modAliases[mod] or mod
+    mod = parseCore.parsePatterns.modAliases[mod] or mod
     if unlocalised == "tile.ForgeFiller" or id == "ID" then return nil end
     return mod
 end
@@ -135,10 +135,10 @@ end
 
 
 local function fixNameFromClass(oldName, item)
-    return idk.fixNameFromClassCore(oldName, item, curMod, true)
+    return parseCore.fixNameFromClassCore(oldName, item, curMod, true)
 end
 local function fixNameFromClassPassTwo(oldName, item)
-    return idk.fixNameFromClassCore(oldName, item, curMod, false)
+    return parseCore.fixNameFromClassCore(oldName, item, curMod, false)
 end
 
 local function fixNameFromIndex(oldName, _, index)
@@ -221,8 +221,8 @@ local function constructModTable()
     for line in csv:lines() do
         line = line:gsub("[\13\n\r]", "")
         local id, type, _, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-        local parsedClass = idk.cleanClass(class, curMod)
-        local parsedName = idk.parseName(unlocalised, parsedClass, id, curMod, idk.tryGetHardcodedName)
+        local parsedClass = parseCore.cleanClass(class, curMod)
+        local parsedName = parseCore.parseName(unlocalised, parsedClass, id, curMod, parseCore.tryGetHardcodedName)
 
         if not mTable[parsedName] then
             mTable[parsedName] = {}
@@ -251,7 +251,7 @@ local function saveMod(mTable, itemTablePath)
     coroutine.yield("saving " .. curMod, gutil.vibes.happy)
     local file = gutil.open(itemTablePath, "a")
     file:write(string.format('    %s={\n', curMod))
-    local nameKeys = idk.sortKeysByID(mTable)
+    local nameKeys = parseCore.sortKeysByID(mTable)
     for _, name in ipairs(nameKeys) do
         local data = mTable[name]
         local id = tonumber(data.id)
