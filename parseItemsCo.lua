@@ -327,5 +327,7 @@ function main()
     end
 
     fs.remove(TempOutputDir)
+    
+    coroutine.yield("DONE")
 end
 return main
