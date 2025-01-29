@@ -3,7 +3,7 @@ local gdebug = require("ghostDebug").getDebug(true, false)
 local comp = require("component")
 local serial = require("serialization")
 local fs = require("filesystem")
-local itemTable = require("itemTable")
+local itemTable = require("ITTestDone")
 local idTable = require("idToNameMod")
 local gstring = require("ghostString")
 local idk = require("idk")
@@ -16,10 +16,10 @@ if gutil.isNative() then
     rshift = bit32.rshift
 else
     band = function(a, b)
-        return a & b
+    --    return a & b
     end
     rshift = function(a, b)
-        return a >> b
+    --    return a >> b
     end
 end
 local availableTable = {}
@@ -736,7 +736,7 @@ local function saveItemTable(iTable, outputPath)
         local nameKeys = idk.sortKeysByID(mTable)
 
         -- Process each item
-        for _, name in ipairs(nameKeys) do
+        for i, name in ipairs(nameKeys) do
             local data = mTable[name]
             file:write(string.format(
                 '        %s={id="%s", type="%s", unlocalised="%s", class="%s"',
@@ -775,12 +775,14 @@ local function saveItemTable(iTable, outputPath)
             end
             file:write("},\n")        -- Close item definition
         end
-        file:write("    },\n")        -- Close mod table
+        file:write("    },\n") -- Close mod table
+        --coroutine.yield("Saved " .. mod)
     end
     file:write("}\nreturn itemTable") -- Close the Lua table
     file:close()
 
     coroutine.yield("Item table saved to " .. outputPath)
+    fs.rename(outputPath, "/ITTestDone.lua")
 end
 
 function main()

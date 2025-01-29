@@ -1,5 +1,6 @@
 local fs = require("filesystem")
 local gutil = require("ghostUtils")
+local gstring = require("ghostString")
 local puter = require("computer")
 local shell = require("shell")
 local idk = require("idk")
@@ -12,28 +13,70 @@ local VERBOSE = false
 if ops["v"] or ops["verbose"] then
     VERBOSE = true
 end
-local argoffset = 0
-if args[1] == "parseItemsCo" then
-    argoffset = 1
-end
-if args[2] == "/parseItemsCo.lua" then
-    argoffset = argoffset+1
-end
-local SrcCsvPath = args[1+argoffset] or "/item.csv"
-local ExtraCsvPath = args[2+argoffset] or "/itemAppend.csv"
+
+local SrcCsvPath = args[1] or "/item.csv"
+local ExtraCsvPath = args[2] or "/itemAppend.csv"
 local TempOutputDir = "/temp/ghost/parseItems"
 local ModCSVDir = fs.concat(TempOutputDir, "modcsv/")
 local FinalItemTablePath = "/itemTable.lua"
 --local ModCSVBufferSize = 30
+local gpu = require("component").gpu
 
 local curMod = nil
 local modList = {}
 local collisionFilePath = "/itemTableCollisions.txt"
 
 
+local currentRenameMod = nil
+local renameWidth = gpu.getResolution()
+renameWidth = math.min(math.floor((renameWidth - 12) / 3), 30)
+
+
+local function printPrettyRename(oldName, newName, contextType, context)
+    local white = 0xFFFFFF
+    local reference
+    local sep = " | "
+    oldName = gstring.toLength(oldName, renameWidth)
+    newName = gstring.toLength(newName, renameWidth)
+    if not context then
+        reference = gstring.toLength("", renameWidth)
+    else
+        context = gstring.shorten(context, (renameWidth-(#contextType+5)))
+        reference = gstring.toLength (contextType .. ": '" .. context .. "'", renameWidth)
+    end
+
+    if currentRenameMod ~= curMod then
+        print("Renaming")
+        print(" | " ..
+        gstring.toLength("Original Name", renameWidth, "center") .. " | " ..
+        gstring.toLength("New Name", renameWidth, "center") .. " | " ..
+        gstring.toLength("Reference", renameWidth, "center") .. " |")
+        currentRenameMod = curMod
+    end
+    if gpu.getDepth == 1 then
+        print(sep .. oldName .. sep .. newName .. sep .. reference .. " |\n")
+        return
+    end
+
+    local oldColor = gutil.writeColor(sep, white)
+    gutil.writeColor(oldName, 0xFF0080)
+    gutil.writeColor(sep, white)
+    gutil.writeColor(newName, 0x22EEFF)
+    gutil.writeColor(sep, white)
+    gutil.writeColor(reference, 0xff8000)
+    gutil.writeColor(" |\n", white)
+    gpu.setForeground(oldColor)
+end
+
+local function printIfRename(name, newName, contextType, context)
+    if name ~= newName and VERBOSE then
+        printPrettyRename(name, newName, contextType, context)
+    end
+end
+
 local function modFromLine(line)
     local id, type, mod, unlocalised, class = line:match("(.*),(.*),(.*),(.*),(.*)")
-    if mod == "UNKNOWNMOD" or mod == "null" or mod == "nil" or mod == nil and (id <= 421 or (id >= 2256 and id <= 2267)) then
+    if mod == "UNKNOWNMOD" or mod == "null" or mod == "nil" or mod == nil and (id <= 421 or (id>=2256 and id<=2267)) then
         mod = "Minecraft"
     else
         mod = mod:gsub("%s", "")
@@ -44,7 +87,7 @@ local function modFromLine(line)
 end
 
 local function saveBuffer(buffer, outputDir, mod)
-    coroutine.yield("Saving lines for " .. mod)
+    print("Saving lines for " .. mod)
     local filePath = fs.concat(outputDir, mod .. ".csv")
     local file = gutil.open(filePath, "a")
     for _, bufferedLine in ipairs(buffer) do
@@ -64,7 +107,7 @@ local function freeMemOverTimeMax()
 end
 local ModCSVBufferSize = math.floor(freeMemOverTimeMax() / 8192)
 if VERBOSE then
-    coroutine.yield("Using buffer size of " .. ModCSVBufferSize)
+    print("Using buffer size of " .. ModCSVBufferSize)
 end
 
 local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
@@ -76,8 +119,9 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     fs.makeDirectory(outputDir)
     local lineCount = 0
     local function handleCSV(path)
-        coroutine.yield("Processing CSV: " .. path)
+        gutil.uneasyPrint("Processing CSV: " .. path)
         local csv = gutil.open(path, "r")
+
         -- Read the file line by line
         for line in csv:lines() do
             local mod = modFromLine(line)
@@ -91,7 +135,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
                 end
                 table.insert(buffers[mod], line)
                 if #buffers[mod] >= bufferSize then
-                    coroutine.yield("BUFFER FULL. DUMPING DATA")
+                    gutil.uneasyPrint("BUFFER FULL. DUMPING DATA")
                     saveBuffer(buffers[mod], outputDir, mod)
                     buffers[mod] = {} -- Clear the buffer
                 end
@@ -99,7 +143,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
 
             lineCount = lineCount + 1
             if lineCount % 50 == 0 then
-                coroutine.yield("processed ".. lineCount .. " lines")
+                os.sleep(0)
             end
         end
         csv:close()
@@ -108,7 +152,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     if fs.exists(extraCsvPath) then
         handleCSV(extraCsvPath)
     end
-    coroutine.yield("READ DONE. DUMPING REMAINING")
+    gutil.uneasyPrint("READ DONE. DUMPING REMAINING")
 
     -- Write remaining data in buffers
     for mod, buffer in pairs(buffers) do
@@ -118,7 +162,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     end
 
     if VERBOSE then
-        coroutine.yield("Processed " .. lineCount .. " lines and split into mod-specific files.")
+        print("Processed " .. lineCount .. " lines and split into mod-specific files.")
     end
 end
 
@@ -145,7 +189,7 @@ local function fixNameFromIndex(oldName, _, index)
     return oldName .. "_" .. index
 end
 
-local function fixCollisions(mTable, field, renameFunc)
+local function fixCollisions(mTable,  field, renameFunc)
     -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
     -- Check for same name, different fields
     --local refNames = gutil.cloneTable(mTable)
@@ -177,6 +221,7 @@ local function fixCollisions(mTable, field, renameFunc)
         mTable[name] = nil
         for index, item in ipairs(items) do
             local newName = renameFunc(name, item, index)
+            printIfRename(name, newName, field, item[field])
             -- Ensure the new name exists under the mod
             if not mTable[newName] then
                 mTable[newName] = {}
@@ -187,6 +232,13 @@ local function fixCollisions(mTable, field, renameFunc)
         end
     end
 end
+
+
+
+
+
+
+
 
 
 local function testCollisions(mTable)
@@ -240,21 +292,20 @@ local function constructModTable()
     fs.remove(path)
     return mTable
 end
-local function startTableFile(tableName, fileName)
-    local tempOutputPath = fs.concat(TempOutputDir, fileName)
-    local file = gutil.open(tempOutputPath, "w")
-    file:write("local " .. tableName .. "={\n")
-    file:close()
-    return tempOutputPath
-end
-local function saveMod(mTable, itemTablePath)
-    coroutine.yield("saving " .. curMod)
-    local file = gutil.open(itemTablePath, "a")
+
+local function saveMod(mTable, outputPath)
+    gutil.happyPrint("saving " .. curMod)
+    local file = gutil.open(outputPath, "a")
     file:write(string.format('    %s={\n', curMod))
-    local nameKeys = idk.sortKeysByID(mTable)
+    local nameKeys = {}
+    for name in pairs(mTable) do
+        table.insert(nameKeys, name)
+    end
+    table.sort(nameKeys, function(a, b)
+        return tonumber(mTable[a].id) < tonumber(mTable[b].id)
+    end)
     for _, name in ipairs(nameKeys) do
         local data = mTable[name]
-        local id = tonumber(data.id)
         file:write(string.format(
             '        %s={id="%s", type="%s", unlocalised="%s", class="%s"},\n',
             name, data.id, data.type, data.unlocalised, data.class
@@ -263,73 +314,68 @@ local function saveMod(mTable, itemTablePath)
     file:write("    },\n")
     file:close()
 end
-local function finishTableFile(tableName, path, finalPath)
-    local file = gutil.open(path, "a")
-    file:write("}\n\nreturn " .. tableName)
-    file:close()
-    fs.remove(finalPath)
-    fs.rename(path, finalPath)
-    coroutine.yield(tableName .. " saved to " .. finalPath)
+
+local Fucked = false
+--lazy way to clear file contents
+local colfile = gutil.open(collisionFilePath, "w")
+colfile:close()
+--------------  MAIN  --------------
+
+splitByModBuffered(SrcCsvPath, ExtraCsvPath, ModCSVDir, ModCSVBufferSize)
+if not fs.isDirectory( TempOutputDir) then
+    fs.makeDirectory( TempOutputDir)
 end
+local tempOutputPath = fs.concat(TempOutputDir, "/itemTable.lua")
+local file = gutil.open(tempOutputPath, "w")
 
-function main()
-    coroutine.yield("HI")
-    local Fucked = false
-    fs.remove(collisionFilePath)
+file:write("local itemTable={\n")
+file:close()
+local modNames = gutil.sortKeys(modList)
 
-    --------------  MAIN  --------------
+-- Iterate alphabetically
+for _, mod in ipairs(modNames) do
+    curMod = mod
+    gutil.uneasyPrint("Processing " .. mod)
+    local modTable = constructModTable()
+    fixCollisions(modTable, "type", fixNameFromType)
+    fixCollisions(modTable, "class", fixNameFromClass)
+    fixCollisions(modTable, "class", fixNameFromClassPassTwo)
+    fixCollisions(modTable, "type", fixNameFromType)
+    fixCollisions(modTable, "id", fixNameFromIndex)
 
-    splitByModBuffered(SrcCsvPath, ExtraCsvPath, ModCSVDir, ModCSVBufferSize)
-    if not fs.isDirectory(TempOutputDir) then
-        fs.makeDirectory(TempOutputDir)
-    end
-
-
-    local tempITPath = startTableFile("itemTable", "ItemTable.lua")
-    local modNames = gutil.sortKeys(modList)
-
-    -- Iterate alphabetically
-    for _, mod in ipairs(modNames) do
-        curMod = mod
-        coroutine.yield("Processing " .. mod)
-        local modTable = constructModTable()
-        fixCollisions(modTable, "type", fixNameFromType)
-        fixCollisions(modTable, "class", fixNameFromClass)
-        fixCollisions(modTable, "class", fixNameFromClassPassTwo)
-        fixCollisions(modTable, "type", fixNameFromType)
-        fixCollisions(modTable, "id", fixNameFromIndex)
-
-        local collisionStr = testCollisions(modTable)
-        if collisionStr ~= "" then
-            if VERBOSE then
-                coroutine.yield("Not all collisions fixed for " .. curMod)
-            end
-            local colfile = gutil.open(collisionFilePath, "a")
-            colfile:write(collisionStr)
-            colfile:close()
-            Fucked = true
+    local collisionStr = testCollisions(modTable)
+    if collisionStr ~= "" then
+        if VERBOSE then
+            gutil.angryPrint("Not all collisions fixed for " .. curMod)
         end
-        if not Fucked then
-            for name, items in pairs(modTable) do
-                -- Replace the list with a flat structure
-                modTable[name] = items[1]
-            end
-
-            --normalizeNames(modTable)
-            saveMod(modTable, tempITPath)
-            coroutine.yield("Finished mod ".. curMod)
-        end
+        colfile = gutil.open(collisionFilePath, "a")
+        colfile:write(collisionStr)
+        colfile:close()
+        Fucked = true
     end
-
-
     if not Fucked then
-        finishTableFile("itemTable", tempITPath, FinalItemTablePath)
-        --print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
-    else
-        coroutine.yield("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath)
-    end
+        for name, items in pairs(modTable) do
+            -- Replace the list with a flat structure
+            modTable[name] = items[1]
+        end
 
-    fs.remove(TempOutputDir)
-    coroutine.yield("DONE")
+
+        --normalizeNames(modTable)
+        saveMod(modTable, tempOutputPath)
+        os.sleep(.001)
+    end
 end
-return main
+
+if not Fucked then
+    file = gutil.open(tempOutputPath, "a")
+    file:write("}\n\nreturn itemTable")
+    file:close()
+    fs.remove(FinalItemTablePath)
+    fs.rename(tempOutputPath, FinalItemTablePath)
+    print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
+else
+    gutil.angryPrint("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath)
+end
+
+fs.remove(TempOutputDir)
+
