@@ -1,10 +1,6 @@
 local gutil = require("ghostUtils")
-
-function makeIDToNameModTable(iTable, outputPath)
-    makeTemp(iTable)
-    if true then
-        return
-    end
+local iTable = require("itemTable")
+function makeIDToNameModTable(outputPath)
     local idToNameMod = {}
     for mod, names in pairs(iTable) do
         for name, data in pairs(names) do

@@ -5,13 +5,15 @@ local term = require("term")
 local gutil = require("ghostUtils")
 local coro = require("coroutine")
 
+local gtemp = "/temp/ghost"
 local COFU
 local COCO
-local CODELAY_N = 0
-local CODELAY_U = 1
+local CORO_DELAY_NEW = 0
+local CORO_DELAY_UPD = 1
 local LIS_STOP_DELAY = .5
 local genTracker = false
-local listenerPath = "/tmp/ITListeners"
+local GEN_LIS_PATH = fs.concat(gtemp,"ITListeners")
+local ENTER_LIS_FLAG_PATH = fs.concat(gtemp, "ITEnLis")
 
 local lastX = 0
 local lastY = 0
@@ -19,6 +21,10 @@ local lastL1 = ""
 local lastL2 = ""
 local lastFore = nil
 local lastBack = nil
+
+if not fs.exists(gtemp) then
+    fs.makeDirectory(gtemp)
+end
 local function printBox(x, y, foreground, background, messageL1, messageL2)
     lastX, lastY = x,y
     lastL1, lastL2 = messageL1, messageL2
@@ -28,7 +34,7 @@ end
 local args, ops = shell.parse(...)
 local isNew = (ops["new"] or ops["n"]) or not fs.exists("/itemTable.lua")
 local function stopListeners()
-    local file = io.open(listenerPath, "r")
+    local file = io.open(GEN_LIS_PATH, "r")
     if file then
         for line in file:lines() do
             local listener = tonumber(line)
@@ -42,7 +48,7 @@ local function stopListeners()
         end
         file:close()
     end
-    fs.remove(listenerPath)
+    fs.remove(GEN_LIS_PATH)
 end
 
 if ops["stop"] or ops["s"] then
@@ -86,8 +92,8 @@ local function cocoDo()
     printBox(1, 1, vibe, nil, coVal)
 end
 local function startEnterListener()
-    if not fs.exists("/tmp/ITEnLis") then
-        local file = gutil.open("/tmp/ITEnLis", "w")
+    if not fs.exists(ENTER_LIS_FLAG_PATH) then
+        local file = gutil.open(ENTER_LIS_FLAG_PATH, "w")
         file:write("true")
         file:close()
         ev.listen("key_down", redrawOnEnter)
@@ -100,14 +106,14 @@ local function startCoro(req, codel)
     COCO = coro.create(COFU)
     local timer = ev.timer(codel, cocoDo, math.huge)
     startEnterListener()
-    local file = gutil.open(listenerPath, "w")
+    local file = gutil.open(GEN_LIS_PATH, "w")
     file:write(timer)
     file:close()
 end
 local function update()
     printBox(1, 1, gutil.vibes.uneasy, nil, "STARTING UPDATE")
-    os.sleep(CODELAY_U)
-    startCoro("ITUpdate", CODELAY_U)
+    os.sleep(CORO_DELAY_UPD)
+    startCoro("ITUpdate", CORO_DELAY_UPD)
 end
 
 local genTrackerTimer
@@ -116,7 +122,7 @@ local function checkForGenTracker()
         ev.cancel(genTrackerTimer)
         genTracker = false
         printBox(1, 1,gutil.vibes.neutral, nil, "Making ID Conversion Table")
-        os.sleep(CODELAY_U)
+        os.sleep(CORO_DELAY_UPD)
         local make = require("makeIDToNMMem")
         make()
         isNew = false
@@ -125,7 +131,7 @@ local function checkForGenTracker()
 end
 if isNew then
     genTrackerTimer = ev.timer(1, checkForGenTracker, math.huge)
-    startCoro("ITGen", CODELAY_N)
+    startCoro("ITGen", CORO_DELAY_NEW)
 else
     update()
 end

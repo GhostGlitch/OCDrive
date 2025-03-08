@@ -15,8 +15,9 @@ local event = require("event")
 local function toRoot()
     shell.setWorkingDirectory("/")
 end
-gutil.emptyDir("/tmp")
 event.timer(0,toRoot,1)
+if fs.exists("/tmp/ghost") then fs.remove("/tmp/ghost") end
+if fs.exists("/temp/ghost") then fs.remove("/temp/ghost") end
 local function switchToRole(shouldPrint)
     if ROLE == "NOROLE" then
         gutil.printIf(shouldPrint, "Initialization complete.")

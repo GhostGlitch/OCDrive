@@ -1,9 +1,9 @@
-local gdebug = require("ghostDebug").getDebug(true, false)
+--local gdebug = require("ghostDebug").getDebug(true, false)
 --gdebug = require("ghostDebug").getDebug(true)
 local comp = require("component")
 local serial = require("serialization")
 local fs = require("filesystem")
-local itemTable = require("ITTest")
+local itemTable = require("itemTable")
 local idTable = require("idToNameMod")
 local gstring = require("ghostString")
 local parseCore = require("ITParseCore")
@@ -127,7 +127,6 @@ local function pfnPotion(id)
 end
 local function pfnMarkRoman(name, index)
     local roman = gmath.toRoman(index)
-    --print(name, index, roman)
     return "MK" .. roman
 end
 local function pfnLXNumber(name, index)
@@ -498,10 +497,7 @@ local subnameParsePats = {
 local function tryGetHardcodedSubName(name, damage, curMod)
     local newName = nil
     local function getName(hardTable, inname, index)
-        --gdebug.printIf(curMod == "ComputerCraft", inname, partname, index)
-        --gdebug.printIf(curMod == "Minecraft", inname, damage)
         if hardTable[curMod] and hardTable[curMod][inname] then
-            --gdebug.printIf(curMod == "Minecraft", inname, damage)
             if type(hardTable[curMod][inname]) == "function" then
 
                 newName = hardTable[curMod][inname](damage, index)
@@ -515,7 +511,6 @@ local function tryGetHardcodedSubName(name, damage, curMod)
     local partname, index = name:match("(.+)[_%.](%d+)$")
     if not partname then partname = name end
     index = tonumber(index)
-    --gdebug.printIfDelay(curMod == "MineFactoryReloaded", 0, name, partname, index)
     getName(subnameParsePats.hardcoded.byNameNum, partname, index)
     getName(subnameParsePats.hardcoded.byDamage, name, damage)
     return newName
@@ -528,17 +523,14 @@ local function cleanSubName(subname, niceName, damage, curMod)
     if niceName:match("%d$")  then
         niceName = niceName:match("(.+[^_%d*])_?(%d+)$")
     end
-    --newName = gstring.stripIgnoreCase(newName, niceName, true)
     newName = gstring.stripIgnoreCase(newName, niceName, true)
     newName = gstring.stripIgnoreCase(newName, niceName .. "$")
     if niceName:match("Generic$") then
         niceName = niceName:match("(.+)Generic")
-        --newName = gstring.stripIgnoreCase(newName, niceName, true)
         newName = gstring.stripIgnoreCase(newName, niceName, true)
         newName = gstring.stripIgnoreCase(newName, niceName .. "$")
     end
     local num = tonumber(newName:match("^_?(%d+)$"))
-    --gdebug.printIf(niceName == "cosmeticOpaque", niceName, newName)
     newName = parseCore.standardizeName(newName)
     if newName == "" or tostring(newName) == tostring(damage) or num == damage then
         newName = "damage_" .. damage
@@ -549,37 +541,28 @@ local function parseSubName(subName, curMod, niceName, damage)
     if subName == "null" or subName == nil then
         subName = "damage_" .. damage
     end
-    --gdebug.printIfDelay(curMod == "nil", .1, name)
     local newName = parseCore.parseName(subName, nil, damage, curMod, tryGetHardcodedSubName)
     newName = cleanSubName(newName, niceName, damage, curMod)
-    --idk.printIfRename(simpleName, newName)
     return newName
 end
 local function stripBadEntries(subTable)
     local removals = {}
     for mod, names in pairs(subTable) do
-        --print(serial.serialize(names, "pretty"))
-        --os.sleep(20)
         for name, items in pairs(names) do
             local count = 0
             for _ in pairs(items) do
                 count = count + 1
                 if count == 2 then break end
             end
-            --gdebug.printIf(name == "lavaTank_1", name, "count", count)
             if count == 1 then
                 local hasOthers = false
                 for _, subitem in pairs(itemTable[mod][name]) do
-                    --gdebug.printIf(name == "lavaTank_1", subitem, subitem.damage)
                     if subitem.damage and subitem.damage ~= 0 then
                         hasOthers = true
                         break
                     end
                 end
-                --print(serial.serialize(items))
                 if not hasOthers and items[0] and items[0].subname == "damage_0" then
-                    --print(serial.serialize(item))
-                    --gdebug.printIf(name == "lavaTank_1", "removing", items[0], items[0].damage)
                     table.insert(removals, { mod = mod, name = name })
                 end
             end
@@ -699,7 +682,6 @@ local function updateIT(newTable, iTable)
                             ["damage"] = subItem.damage,
                         }
                     end
-                    --gdebug.printIf(name == "lavaTank_1", subname, subItem.damage)
                 end
             end
         end
@@ -709,21 +691,12 @@ return iTable
 end
 
 local function saveItemTable(iTable, outputPath)
-
-    --gutil.happyPrint("Saving entire item table")
-    
-    -- Open the file in write mode to overwrite existing content
     local file = gutil.open(outputPath, "w")
-    file:write("local itemTable = {\n") -- Start the Lua table
-    -- Process each mod
+    file:write("local itemTable = {\n")
     for mod, mTable in pairs(iTable) do
-        --gutil.happyPrint("Saving mod: " .. mod)
         file:write(string.format('    %s={\n', mod))
-
-        -- Collect and sort item names by ID
         local nameKeys = parseCore.sortKeysByID(mTable)
 
-        -- Process each item
         for i, name in ipairs(nameKeys) do
             local data = mTable[name]
             file:write(string.format(
@@ -731,7 +704,6 @@ local function saveItemTable(iTable, outputPath)
                 name, data.id, data.type, data.unlocalised, data.class
             ))
 
-            -- Check for and write subitems
             local sortedSubnames = {}
             local AmbiguousSubnames = {}
             for key, value in pairs(data) do
@@ -761,12 +733,11 @@ local function saveItemTable(iTable, outputPath)
                     subname, subdata
                 ))
             end
-            file:write("},\n")        -- Close item definition
+            file:write("},\n")
         end
-        file:write("    },\n") -- Close mod table
-        --coroutine.yield("Saved " .. mod)
+        file:write("    },\n")
     end
-    file:write("}\nreturn itemTable") -- Close the Lua table
+    file:write("}\nreturn itemTable")
     file:close()
 
     coroutine.yield("Item table saved to " .. outputPath, gutil.vibes.happy)
@@ -774,7 +745,6 @@ local function saveItemTable(iTable, outputPath)
 end
 
 function main()
-    --print("start")
     local newTable = makeNewTable(itemTable)
     coroutine.yield("tableMade", gutil.vibes.happy)
     newTable = stripBadEntries(newTable)
@@ -784,11 +754,4 @@ function main()
     saveItemTable(iTable, "./ItTest.lua")
     coroutine.yield("DONE", gutil.vibes.happy)
 end
---coco = coroutine.create(main)
---function dod()
- --   while true do
---        print(coroutine.resume(coco))
---        os.sleep(.01)
---    end
---end
 return main

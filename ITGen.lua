@@ -12,19 +12,18 @@ local VERBOSE = false
 if ops["v"] or ops["verbose"] then
     VERBOSE = true
 end
-local argoffset = 0
-if args[1] == "parseItemsCo" then
-    argoffset = 1
+local argOffset = 0
+if args[1] == "ITGen" then
+    argOffset = 1
 end
-if args[2] == "/parseItemsCo.lua" then
-    argoffset = argoffset+1
+if args[2] == "/ITGen.lua" then
+    argOffset = argOffset+1
 end
-local SrcCsvPath = args[1+argoffset] or "/item.csv"
-local ExtraCsvPath = args[2+argoffset] or "/itemAppend.csv"
+local SrcCsvPath = args[1+argOffset] or "/item.csv"
+local ExtraCsvPath = args[2+argOffset] or "/itemAppend.csv"
 local TempOutputDir = "/temp/ghost/parseItems"
 local ModCSVDir = fs.concat(TempOutputDir, "modcsv/")
 local FinalItemTablePath = "/itemTable.lua"
---local ModCSVBufferSize = 30
 
 local curMod = nil
 local modList = {}
@@ -78,14 +77,12 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     local function handleCSV(path)
         coroutine.yield("Processing CSV: " .. path)
         local csv = gutil.open(path, "r")
-        -- Read the file line by line
         for line in csv:lines() do
             local mod = modFromLine(line)
             if mod then
                 if not modList[mod] then
-                    modList[mod] = true -- Use the table as a set
+                    modList[mod] = true
                 end
-                -- Add the line to the buffer
                 if not buffers[mod] then
                     buffers[mod] = {}
                 end
@@ -93,7 +90,7 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
                 if #buffers[mod] >= bufferSize then
                     coroutine.yield("BUFFER FULL. DUMPING DATA", gutil.vibes.uneasy)
                     saveBuffer(buffers[mod], outputDir, mod)
-                    buffers[mod] = {} -- Clear the buffer
+                    buffers[mod] = {}
                 end
             end
 
@@ -110,7 +107,6 @@ local function splitByModBuffered(csvPath, extraCsvPath, outputDir, bufferSize)
     end
     coroutine.yield("READ DONE. DUMPING REMAINING", gutil.vibes.uneasy)
 
-    -- Write remaining data in buffers
     for mod, buffer in pairs(buffers) do
         if #buffer > 0 then
             saveBuffer(buffer, outputDir, mod)
@@ -146,12 +142,9 @@ local function fixNameFromIndex(oldName, _, index)
 end
 
 local function fixCollisions(mTable, field, renameFunc)
-    -- make a copy of the itemTable to avoid modifying the same table that I am looping through.
-    -- Check for same name, different fields
-    --local refNames = gutil.cloneTable(mTable)
     local collisions = {}
     for name, items in pairs(mTable) do
-        if #items > 1 then -- Only consider cases with multiple items
+        if #items > 1 then
             local base = items[1][field]
             if field == "id" then
                 table.sort(items, function(a, b)
@@ -159,10 +152,6 @@ local function fixCollisions(mTable, field, renameFunc)
                 end)
                 collisions[name] = items
             else
-                -- Check for differences in the specified field.
-                -- (this is done rather than modifying the items as I find them to
-                -- make it easier to remove the name from mTable,
-                -- especially in instances where renameFunc resolves to the original name.)
                 for _, item in ipairs(items) do
                     if item[field] ~= base then
                         collisions[name] = items
@@ -172,17 +161,13 @@ local function fixCollisions(mTable, field, renameFunc)
             end
         end
     end
-    -- If multiple differences are present, adjust names
     for name, items in pairs(collisions) do
         mTable[name] = nil
         for index, item in ipairs(items) do
             local newName = renameFunc(name, item, index)
-            -- Ensure the new name exists under the mod
             if not mTable[newName] then
                 mTable[newName] = {}
             end
-
-            -- Move the item to the new name
             table.insert(mTable[newName], item)
         end
     end
@@ -193,20 +178,16 @@ local function testCollisions(mTable)
     --probably should add to table and concat at end, but eh.
     local collisions = ""
 
-    -- Iterate through all mods
     for name, entries in pairs(mTable) do
-        -- Check if there is more than one entry under this name
         if #entries > 1 then
-            -- Write the mod and name to the file
             collisions = collisions .. (string.format("Mod: %s, Name: %s\n", curMod, name))
-            -- Write each entry's details
             for i, item in ipairs(entries) do
                 collisions = collisions .. (string.format("  Entry %d:\n", i))
                 collisions = collisions .. (string.format("    ID: %s\n", item.id or "N/A"))
                 collisions = collisions .. (string.format("    Type: %s\n", item.type or "N/A"))
                 collisions = collisions .. (string.format("    Class: %s\n", item.class or "N/A"))
             end
-            collisions = collisions .. "\n" -- Add an extra line for readability
+            collisions = collisions .. "\n"
         end
     end
     return collisions
@@ -228,7 +209,6 @@ local function constructModTable()
             mTable[parsedName] = {}
         end
 
-        -- Add the ID entry under the mod key
         table.insert(mTable[parsedName], {
             ["id"] = id,
             ["type"] = type,
@@ -287,7 +267,6 @@ function main()
     local tempITPath = startTableFile("itemTable", "ItemTable.lua")
     local modNames = gutil.sortKeys(modList)
 
-    -- Iterate alphabetically
     for _, mod in ipairs(modNames) do
         curMod = mod
         coroutine.yield("Processing " .. mod, gutil.vibes.uneasy)
@@ -313,8 +292,6 @@ function main()
                 -- Replace the list with a flat structure
                 modTable[name] = items[1]
             end
-
-            --normalizeNames(modTable)
             saveMod(modTable, tempITPath)
             coroutine.yield("Finished mod ".. curMod, gutil.vibes.happy)
         end
@@ -323,7 +300,6 @@ function main()
 
     if not Fucked then
         finishTableFile("itemTable", tempITPath, FinalItemTablePath)
-        --print("Item Table generated to \"" .. FinalItemTablePath .. "\"")
     else
         coroutine.yield("Item Table generation failed due to unresolved collisions, see " .. collisionFilePath, gutil.vibes.angry)
     end
